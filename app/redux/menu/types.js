@@ -1,0 +1,5 @@
+export const GET_MENU_PENDING = 'menu/GET_MENU_PENDING';
+export const GET_MENU_SUCCESS = 'menu/GET_MENU_SUCCESS';
+export const GET_MENU_FAILURE = 'menu/GET_MENU_FAILURE';
+
+export const SET_SELECTED_CATEGORY = 'menu/SET_SELECTED_CATEGORY';

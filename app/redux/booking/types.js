@@ -1,0 +1,9 @@
+export const SET_SELECTED_DATE = 'booking/SET_SELECTED_DATE';
+export const SET_SELECTED_TIME_SLOT = 'booking/SET_SELECTED_TIME_SLOT';
+export const SET_GUEST_COUNT = 'booking/SET_GUEST_COUNT';
+export const SET_SPECIAL_REQUESTS = 'booking/SET_SPECIAL_REQUESTS';
+export const RESET_BOOKING = 'booking/RESET_BOOKING';
+
+export const CREATE_BOOKING_PENDING = 'booking/CREATE_BOOKING_PENDING';
+export const CREATE_BOOKING_SUCCESS = 'booking/CREATE_BOOKING_SUCCESS';
+export const CREATE_BOOKING_FAILURE = 'booking/CREATE_BOOKING_FAILURE';

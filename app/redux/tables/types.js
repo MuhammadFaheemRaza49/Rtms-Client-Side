@@ -1,0 +1,14 @@
+export const GET_TABLES_PENDING = 'tables/GET_TABLES_PENDING';
+export const GET_TABLES_SUCCESS = 'tables/GET_TABLES_SUCCESS';
+export const GET_TABLES_FAILURE = 'tables/GET_TABLES_FAILURE';
+
+export const SELECT_FLOOR = 'tables/SELECT_FLOOR';
+export const SELECT_TABLE = 'tables/SELECT_TABLE';
+export const DESELECT_TABLE = 'tables/DESELECT_TABLE';
+export const CLEAR_SELECTED_TABLES = 'tables/CLEAR_SELECTED_TABLES';
+
+export const TOGGLE_JOIN_TABLES = 'tables/TOGGLE_JOIN_TABLES';
+export const SET_HIGH_CHAIR_COUNT = 'tables/SET_HIGH_CHAIR_COUNT';
+export const TOGGLE_WHEELCHAIR = 'tables/TOGGLE_WHEELCHAIR';
+
+export const RESET_TABLE_SELECTION = 'tables/RESET_TABLE_SELECTION';
