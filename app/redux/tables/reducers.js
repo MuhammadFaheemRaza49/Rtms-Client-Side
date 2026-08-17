@@ -15,6 +15,7 @@ import {
 const initialState = {
   loading: false,
   error: null,
+  branchId: null,
   floors: [],
   selectedFloorId: null,
   tablesByFloor: {},
@@ -33,6 +34,10 @@ const tablesReducer = (state = initialState, action) => {
         ...state,
         loading: true,
         error: null,
+        floors: [],
+        tablesByFloor: {},
+        selectedFloorId: null,
+        selectedTableIds: [],
       };
 
     case GET_TABLES_SUCCESS: {
@@ -43,9 +48,10 @@ const tablesReducer = (state = initialState, action) => {
         ...state,
         loading: false,
         error: null,
+        branchId: action.payload?.branchId || null,
         floors,
         tablesByFloor,
-        selectedFloorId: state.selectedFloorId ? state.selectedFloorId : firstFloorId,
+        selectedFloorId: state.selectedFloorId && floors.some(f => f.id === state.selectedFloorId) ? state.selectedFloorId : firstFloorId,
       };
     }
 
@@ -61,6 +67,17 @@ const tablesReducer = (state = initialState, action) => {
         ...state,
         selectedFloorId: action.payload,
       };
+
+    case 'tables/GET_FLOOR_TABLES_SUCCESS': {
+      const { floorId, tables } = action.payload;
+      return {
+        ...state,
+        tablesByFloor: {
+          ...state.tablesByFloor,
+          [floorId]: tables,
+        },
+      };
+    }
 
     case SELECT_TABLE:
       return {

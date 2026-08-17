@@ -60,7 +60,7 @@ const SearchResultsScreen = () => {
 
   // Trigger search on mount
   useEffect(() => {
-    const activeQuery = query || searchQuery || 'Splash Dining';
+    const activeQuery = query !== undefined ? query : (searchQuery || '');
     dispatch(setSearchQuery(activeQuery));
     dispatch(searchRestaurants(activeQuery));
   }, [dispatch, query]);
@@ -191,7 +191,9 @@ const SearchResultsScreen = () => {
         {searchResults.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Search Results</Text>
-            {searchResults.map((item, index) => renderSearchResultCard(item, index))}
+            <View style={styles.gridContainer}>
+              {searchResults.map((item, index) => renderGridCard(item, index))}
+            </View>
           </View>
         )}
 
@@ -199,7 +201,7 @@ const SearchResultsScreen = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Restaurants You Might Like</Text>
             <View style={styles.gridContainer}>
-              {[...recommendations, ...recommendations].map((item, index) =>
+              {recommendations.map((item, index) =>
                 renderGridCard(item, index)
               )}
             </View>

@@ -12,18 +12,49 @@ import {
 } from './actions';
 
 /**
- * Fetches the list of bookings for the user.
+ * Normalizes a raw booking object from the backend into the shape
+ * expected by the client screens (date, startTime, endTime, status lowercase).
  */
-export const getMyBookings = () => {
+const normalizeBooking = (raw) => {
+  if (!raw) return raw;
+
+  const startsAt = raw.startsAt ? new Date(raw.startsAt) : null;
+  const endsAt = raw.endsAt ? new Date(raw.endsAt) : null;
+
+  const pad = (n) => String(n).padStart(2, '0');
+  const formatTime = (d) => d ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : '';
+  const formatDate = (d) => d ? `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` : '';
+
+  return {
+    ...raw,
+    date: formatDate(startsAt),
+    startTime: formatTime(startsAt),
+    endTime: formatTime(endsAt),
+    status: raw.status ? raw.status.toLowerCase() : 'pending',
+    restaurantName: raw.restaurantName || raw.branchName || 'Restaurant',
+    specialRequests: raw.notes || raw.specialRequests || '',
+  };
+};
+
+/**
+ * Fetches the list of bookings for the user.
+ * @param {string} branchId
+ */
+export const getMyBookings = (branchId) => {
   return async (dispatch) => {
     dispatch(getMyBookingsPending());
     try {
-      // Placeholder endpoint URL. Update when backend is finalized. E.g., GET `/bookings`
-      const url = '/bookings';
+      const activeBranchId = branchId || '00000000-0000-7000-8000-000000000030';
+      const url = `/portal/branches/${activeBranchId}/bookings`;
       const response = await RestApi.get(url);
 
-      dispatch(getMyBookingsSuccess(response));
-      return response;
+      // Normalize each booking from the backend response
+      const bookings = Array.isArray(response)
+        ? response.map(normalizeBooking)
+        : [];
+
+      dispatch(getMyBookingsSuccess(bookings));
+      return bookings;
     } catch (error) {
       const errorMessage =
         error?.response?.data?.message ||
@@ -38,17 +69,21 @@ export const getMyBookings = () => {
 /**
  * Fetches detail view of a single booking.
  * @param {string|number} bookingId
+ * @param {string} branchId
  */
-export const getBookingDetails = (bookingId) => {
+export const getBookingDetails = (bookingId, branchId) => {
   return async (dispatch) => {
     dispatch(getBookingDetailsPending());
     try {
-      // Placeholder endpoint URL. Update when backend is finalized. E.g., GET `/bookings/${bookingId}`
-      const url = `/bookings/${bookingId}`;
+      const activeBranchId = branchId || '00000000-0000-7000-8000-000000000030';
+      const url = `/portal/branches/${activeBranchId}/bookings/${bookingId}`;
       const response = await RestApi.get(url);
 
-      dispatch(getBookingDetailsSuccess(response));
-      return response;
+      // Normalize the single booking detail
+      const booking = normalizeBooking(response);
+
+      dispatch(getBookingDetailsSuccess(booking));
+      return booking;
     } catch (error) {
       const errorMessage =
         error?.response?.data?.message ||
@@ -63,14 +98,16 @@ export const getBookingDetails = (bookingId) => {
 /**
  * Cancels a booking reservation.
  * @param {string|number} bookingId
+ * @param {string} branchId
+ * @param {string} reason
  */
-export const cancelBooking = (bookingId) => {
+export const cancelBooking = (bookingId, branchId, reason = 'User cancellation') => {
   return async (dispatch) => {
     dispatch(cancelBookingPending());
     try {
-      // Placeholder endpoint URL. Update when backend is finalized. E.g., POST `/bookings/${bookingId}/cancel`
-      const url = `/bookings/${bookingId}/cancel`;
-      const response = await RestApi.post(url);
+      const activeBranchId = branchId || '00000000-0000-7000-8000-000000000030';
+      const url = `/portal/branches/${activeBranchId}/bookings/${bookingId}/cancel`;
+      const response = await RestApi.post(url, { reason });
 
       // Pass the bookingId so the reducer can update the state list in-place
       dispatch(cancelBookingSuccess(bookingId));

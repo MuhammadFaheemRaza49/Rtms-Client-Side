@@ -12,6 +12,14 @@ import SearchResultsScreen from './app/container/SearchRestaurant/SearchResultsS
 import LocationSearchScreen from './app/container/SearchRestaurant/LocationSearchScreen';
 import SearchEmptyStateScreen from './app/container/SearchRestaurant/SearchEmptyStateScreen';
 import RestaurantDetailsScreen from './app/container/RestaurantDetails/RestaurantDetailsScreen';
+import DateTimeSelectScreen from './app/container/BookTable/DateTimeSelectScreen';
+import LiveFloorViewScreen from './app/container/BookTable/LiveFloorViewScreen';
+import AdditionalNeedsScreen from './app/container/BookTable/AdditionalNeedsScreen';
+import ChargesSummaryScreen from './app/container/Checkout/ChargesSummaryScreen';
+import ReviewDetailsScreen from './app/container/Checkout/ReviewDetailsScreen';
+import BookingConfirmationScreen from './app/container/BookTable/BookingConfirmationScreen';
+import MyBookingsScreen from './app/container/BookTable/MyBookingsScreen';
+import BookingDetailsScreen from './app/container/BookTable/BookingDetailsScreen';
 import NavigationPath from './app/navigation/NavigationPath';
 import Color from './app/common/Color';
 
@@ -47,6 +55,38 @@ function App() {
               <Stack.Screen
                 name={NavigationPath.RestaurantDetails}
                 component={RestaurantDetailsScreen}
+              />
+              <Stack.Screen
+                name={NavigationPath.DateTimeSelect}
+                component={DateTimeSelectScreen}
+              />
+              <Stack.Screen
+                name={NavigationPath.LiveFloorView}
+                component={LiveFloorViewScreen}
+              />
+              <Stack.Screen
+                name={NavigationPath.AdditionalNeeds}
+                component={AdditionalNeedsScreen}
+              />
+              <Stack.Screen
+                name={NavigationPath.ReviewDetails}
+                component={ReviewDetailsScreen}
+              />
+              <Stack.Screen
+                name={NavigationPath.ChargesSummary}
+                component={ChargesSummaryScreen}
+              />
+              <Stack.Screen
+                name={NavigationPath.BookingConfirmation}
+                component={BookingConfirmationScreen}
+              />
+              <Stack.Screen
+                name={NavigationPath.MyBookings}
+                component={MyBookingsScreen}
+              />
+              <Stack.Screen
+                name={NavigationPath.BookingDetails}
+                component={BookingDetailsScreen}
               />
             </Stack.Navigator>
           </NavigationContainer>

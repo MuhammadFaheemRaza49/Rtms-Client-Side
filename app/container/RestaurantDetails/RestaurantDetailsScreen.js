@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
+import Svg, { Path, Circle, Line, Rect } from 'react-native-svg';
 
 import Color from '../../common/Color';
 import Constants from '../../common/Constants';
@@ -20,6 +21,8 @@ import Images from '../../common/Images';
 import NavigationPath from '../../navigation/NavigationPath';
 
 import { FloorPlanCanvas } from '../../components/canvas/FloorPlanCanvas';
+import DatePickerModal from '../BookTable/DatePickerModal';
+import TimeSlotSelectModal from '../BookTable/TimeSlotSelectModal';
 
 import { getRestaurantDetails } from '../../redux/restaurant';
 import {
@@ -34,6 +37,8 @@ import {
   setHighChairCount,
   toggleWheelchair,
   selectFloor,
+  getTables,
+  getFloorTables,
 } from '../../redux/tables';
 
 // Precise outline icons matching Figma screenshots exactly
@@ -147,6 +152,113 @@ const WheelchairIcon = ({ color = Color.textPrimary, size = 28 }) => (
   </View>
 );
 
+// Amenity Icons precisely matching the screenshot
+const WifiIcon = ({ color = '#1E2937', size = 28 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round">
+    <Path d="M12 18a1.5 1.5 0 0 1 0-3" />
+    <Path d="M8.5 13.5a5 5 0 0 1 7 0" />
+    <Path d="M5 10a10 10 0 0 1 14 0" />
+    <Path d="M1.5 6.5a15 15 0 0 1 21 0" />
+  </Svg>
+);
+
+const ValetIcon = ({ color = '#1E2937', size = 28 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M7 11h10l-1.5-4h-7L7 11z" />
+    <Rect x="4" y="11" width="16" height="5" rx="1" />
+    <Circle cx="7.5" cy="13.5" r="1" fill={color} stroke="none" />
+    <Circle cx="16.5" cy="13.5" r="1" fill={color} stroke="none" />
+    <Path d="M6 16v2h2v-2" />
+    <Path d="M16 16v2h2v-2" />
+  </Svg>
+);
+
+const OutdoorIcon = ({ color = '#1E2937', size = 28 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M12 5c-4 0-6 3-6 6h12c0-3-2-6-6-6z" />
+    <Path d="M12 11v9" />
+    <Path d="M9 20h6" />
+    <Path d="M12 5c.5-1.5 1.5-2.5 3-2" />
+  </Svg>
+);
+
+const SmokingIcon = ({ color = '#1E2937', size = 28 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Rect x="3" y="13" width="13" height="3" rx="0.5" />
+    <Line x1="12" y1="13" x2="12" y2="16" />
+    <Path d="M18 13c.5-1 1.5-1 1-3.5" />
+    <Path d="M20.5 13c.5-1 1.5-1 1-3.5" />
+  </Svg>
+);
+
+const MusicIcon = ({ color = '#1E2937', size = 28 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M9 17V5l10-2v12" />
+    <Circle cx="6.5" cy="17.5" r="2.5" />
+    <Circle cx="16.5" cy="15.5" r="2.5" />
+    <Path d="M9 9l10-2" strokeWidth={2} />
+  </Svg>
+);
+
+const WheelchairIconSmall = ({ color = '#1E2937', size = 28 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx="12" cy="5" r="1.5" />
+    <Path d="M8 12h6v3.5" />
+    <Path d="M10 8.5v3.5l4.5 3.5" />
+    <Path d="M15 15a4.5 4.5 0 1 1-9 0" />
+  </Svg>
+);
+
+const PrayerIcon = ({ color = '#1E2937', size = 28 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M6 19v-4c0-3 3-5 6-5s6 2 6 5v4" />
+    <Path d="M12 10V4.5" />
+    <Path d="M10.5 4c.5-1.5 2.5-1.5 3 0" />
+    <Path d="M4 19h16" />
+    <Path d="M10 19v-3c0-.6.4-1 1-1h2c.6 0 1 .4 1 1v3" />
+  </Svg>
+);
+
+const KidsIcon = ({ color = '#1E2937', size = 28 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx="12" cy="13" r="7" />
+    <Path d="M9.5 15.5c.8 1 2.2 1.5 3.5 1.5s2.7-.5 3.5-1.5" />
+    <Circle cx="9.5" cy="11.5" r="0.8" fill={color} stroke="none" />
+    <Circle cx="14.5" cy="11.5" r="0.8" fill={color} stroke="none" />
+    <Path d="M12 6a2 2 0 0 0-2-2" />
+    <Path d="M5 13.5a1.5 1.5 0 0 1 0-2M19 13.5a1.5 1.5 0 0 0 0-2" />
+  </Svg>
+);
+
+const UserAvatarIcon = ({ size = 32 }) => (
+  <View style={{
+    width: size,
+    height: size,
+    borderRadius: size / 2,
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  }}>
+    <View style={{
+      width: size * 0.4,
+      height: size * 0.4,
+      borderRadius: (size * 0.4) / 2,
+      backgroundColor: '#9CA3AF',
+      marginTop: 2,
+    }} />
+    <View style={{
+      width: size * 0.75,
+      height: size * 0.35,
+      borderRadius: (size * 0.75) / 2,
+      backgroundColor: '#9CA3AF',
+      marginTop: 1.5,
+    }} />
+  </View>
+);
+
 const RestaurantDetailsScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -158,19 +270,26 @@ const RestaurantDetailsScreen = () => {
   // Redux Selectors
   const { selectedRestaurant, loading, error } = useSelector((state) => state.restaurant);
   const { selectedDate, selectedTimeSlot, specialRequests } = useSelector((state) => state.booking);
-  const { selectedFloorId, selectedTableIds, joinTables, additionalNeeds } = useSelector((state) => state.tables);
+  const { selectedFloorId, selectedTableIds, joinTables, additionalNeeds, floors, tablesByFloor, branchId: loadedBranchId } = useSelector((state) => state.tables);
 
   // Local States
   const [aboutExpanded, setAboutExpanded] = useState(false);
   const [highlightsExpanded, setHighlightsExpanded] = useState(false);
   const [showFloorDropdown, setShowFloorDropdown] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
-  // Fetch details on mount if missing
+  // Fetch details, floors, and tables on mount
   useEffect(() => {
-    if (!selectedRestaurant || selectedRestaurant.id !== restaurantId) {
-      dispatch(getRestaurantDetails(restaurantId || 'nearby-2'));
+    const targetId = restaurantId || '00000000-0000-7000-8000-000000000030';
+    if (!selectedRestaurant || selectedRestaurant.id !== targetId) {
+      dispatch(getRestaurantDetails(targetId));
     }
-  }, [dispatch, restaurantId, selectedRestaurant]);
+    // Preload floors and tables list to render the mini canvas layout instantly
+    if (loadedBranchId !== targetId) {
+      dispatch(getTables(targetId, selectedDate, selectedTimeSlot));
+    }
+  }, [dispatch, restaurantId, selectedRestaurant, loadedBranchId, selectedDate, selectedTimeSlot]);
 
   if (loading || !selectedRestaurant) {
     return (
@@ -201,19 +320,21 @@ const RestaurantDetailsScreen = () => {
     address,
     about,
     highlights,
+    hours,
+    depositAmount,
+    currency,
   } = selectedRestaurant;
 
-  // Selected Table helper
-  const getSelectedTableNum = () => {
-    if (selectedTableIds.length === 0) return null;
-    const firstId = selectedTableIds[0];
-    if (firstId === 'table-1') return { num: '1', seats: '4 Seater' };
-    if (firstId === 'table-2') return { num: '2', seats: '4 Seater' };
-    if (firstId === 'table-5') return { num: '5', seats: '6 Seater' };
-    return { num: '6', seats: '4 Seater' };
+  // Table info lookup
+  const TABLE_INFO = {
+    'table-1': { num: '1', seats: '4 Seater' },
+    'table-2': { num: '2', seats: '4 Seater' },
+    'table-3': { num: '3', seats: '6 Seater' },
+    'table-4': { num: '4', seats: '2 Seater' },
+    'table-5': { num: '5', seats: '6 Seater' },
+    'table-6': { num: '6', seats: '4 Seater' },
   };
-
-  const selectedTable = getSelectedTableNum();
+  const activeFloor = floors && floors.find((f) => f.id === selectedFloorId);
 
   const handleTableToggle = (tableId) => {
     if (selectedTableIds.includes(tableId)) {
@@ -257,16 +378,24 @@ const RestaurantDetailsScreen = () => {
           
           {/* Rating Row */}
           <View style={styles.ratingRow}>
-            <Text style={styles.starText}>★ ★ ★ ★ ★</Text>
-            <Text style={styles.ratingValueText}>{rating || '4.8'}</Text>
+            {rating ? (
+              <>
+                <Text style={styles.starText}>★ ★ ★ ★ ★</Text>
+                <Text style={styles.ratingValueText}>{rating}</Text>
+              </>
+            ) : (
+              <Text style={styles.ratingValueText}>Not Rated</Text>
+            )}
             <TouchableOpacity>
-              <Text style={styles.reviewLinkText}>{reviewCount || '5,120'} Reviews</Text>
+              <Text style={styles.reviewLinkText}>
+                {reviewCount ? `${reviewCount} Reviews` : 'No Reviews'}
+              </Text>
             </TouchableOpacity>
           </View>
 
           {/* Pricing */}
           <Text style={styles.priceText}>
-            From <Text style={styles.boldPrice}>PKR 3,000</Text> Per Person
+            From <Text style={styles.boldPrice}>{currency || 'PKR'} {depositAmount !== undefined ? depositAmount.toLocaleString() : 'Not Available'}</Text> Per Person
           </Text>
 
           <View style={styles.divider} />
@@ -274,19 +403,21 @@ const RestaurantDetailsScreen = () => {
           {/* Attribute listings */}
           <View style={styles.attributeRow}>
             <ClocheIcon color={Color.textSecondary} size={16} />
-            <Text style={styles.attributeText}>Italian, Continental</Text>
+            <Text style={styles.attributeText}>
+              {selectedRestaurant.cuisineTags ? selectedRestaurant.cuisineTags.join(', ') : 'Not Available'}
+            </Text>
           </View>
 
           <View style={styles.attributeRow}>
             <PinIcon color={Color.textSecondary} size={16} />
             <Text style={styles.attributeText} numberOfLines={1}>
-              {address || '4-A Ali Road Gulberg II, Lahore'}
+              {address || 'Not Available'}
             </Text>
           </View>
 
           <View style={styles.attributeRow}>
             <ClockIcon color={Color.textSecondary} size={16} />
-            <Text style={styles.attributeText}>Open • Closes 12:00 AM</Text>
+            <Text style={styles.attributeText}>{hours ? `Open • ${hours}` : 'Not Available'}</Text>
           </View>
 
           <View style={styles.divider} />
@@ -295,11 +426,13 @@ const RestaurantDetailsScreen = () => {
           <View style={styles.sectionBlock}>
             <Text style={styles.sectionHeader}>About Restaurant</Text>
             <Text style={styles.bodyText} numberOfLines={aboutExpanded ? undefined : 3}>
-              {about || 'Experience fine dining with a blend of Italian and Continental cuisine. Perfect for family dinners, corporate gatherings, and special occasions.'}
+              {about || 'Not Available'}
             </Text>
-            <TouchableOpacity onPress={() => setAboutExpanded(!aboutExpanded)}>
-              <Text style={styles.readMoreText}>{aboutExpanded ? 'Read Less' : 'Read More'}</Text>
-            </TouchableOpacity>
+            {about && (
+              <TouchableOpacity onPress={() => setAboutExpanded(!aboutExpanded)}>
+                <Text style={styles.readMoreText}>{aboutExpanded ? 'Read Less' : 'Read More'}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -307,20 +440,20 @@ const RestaurantDetailsScreen = () => {
         <View style={styles.highlightsContainer}>
           <View style={styles.highlightsCard}>
             <Text style={styles.highlightsHeader}>Highlights</Text>
-            <View style={styles.bulletList}>
-              <Text style={styles.bulletPoint}>• Rooftop & indoor seating available</Text>
-              <Text style={styles.bulletPoint}>• Live music on weekends</Text>
-              <Text style={styles.bulletPoint}>• Valet parking available</Text>
-              {highlightsExpanded && (
-                <>
-                  <Text style={styles.bulletPoint}>• Private dining for events</Text>
-                  <Text style={styles.bulletPoint}>• Buffet options on select holidays</Text>
-                </>
-              )}
-            </View>
-            <TouchableOpacity onPress={() => setHighlightsExpanded(!highlightsExpanded)}>
-              <Text style={styles.readMoreText}>{highlightsExpanded ? 'Read Less' : 'Read More'}</Text>
-            </TouchableOpacity>
+            {highlights && highlights.length > 0 ? (
+              <View style={styles.bulletList}>
+                {highlights.map((h, i) => (
+                  <Text key={i} style={styles.bulletPoint}>• {h}</Text>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.bulletPoint}>• Not Available</Text>
+            )}
+            {highlights && highlights.length > 0 && (
+              <TouchableOpacity onPress={() => setHighlightsExpanded(!highlightsExpanded)}>
+                <Text style={styles.readMoreText}>{highlightsExpanded ? 'Read Less' : 'Read More'}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -343,11 +476,26 @@ const RestaurantDetailsScreen = () => {
                 </TouchableOpacity>
               );
             })}
-            <TouchableOpacity style={[styles.chip, styles.datePickerBtn]}>
+            <TouchableOpacity 
+              style={[
+                styles.chip, 
+                styles.datePickerBtn,
+                // Highlight if custom date selected (not 07, 08, 09)
+                selectedDate && !['07', '08', '09'].some(d => selectedDate.endsWith(d)) && styles.chipSelected
+              ]}
+              onPress={() => setShowDatePicker(true)}
+            >
               <View style={styles.datePickerBtnIcon}>
                 <CalendarIcon color={Color.textSecondary} size={14} />
               </View>
-              <Text style={styles.datePickerBtnText}>Select Date</Text>
+              <Text style={[
+                styles.datePickerBtnText,
+                selectedDate && !['07', '08', '09'].some(d => selectedDate.endsWith(d)) && styles.chipTextSelected
+              ]}>
+                {selectedDate && !['07', '08', '09'].some(d => selectedDate.endsWith(d))
+                  ? selectedDate.split('-')[2] + '/' + selectedDate.split('-')[1]
+                  : 'Select Date'}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -368,68 +516,143 @@ const RestaurantDetailsScreen = () => {
                 </TouchableOpacity>
               );
             })}
-            <TouchableOpacity style={styles.dropdownChip}>
-              <Text style={styles.dropdownChipText}>More ∨</Text>
+            <TouchableOpacity 
+              style={[
+                styles.dropdownChip,
+                selectedTimeSlot && !['12:00 PM', '01:00 PM', '02:00 PM', '07:00 PM'].includes(selectedTimeSlot.label) && styles.chipSelected
+              ]}
+              onPress={() => setShowTimePicker(true)}
+            >
+              <Text style={[
+                styles.dropdownChipText,
+                selectedTimeSlot && !['12:00 PM', '01:00 PM', '02:00 PM', '07:00 PM'].includes(selectedTimeSlot.label) && styles.chipTextSelected
+              ]}>
+                {selectedTimeSlot && !['12:00 PM', '01:00 PM', '02:00 PM', '07:00 PM'].includes(selectedTimeSlot.label)
+                  ? selectedTimeSlot.label
+                  : 'More ˅'}
+              </Text>
             </TouchableOpacity>
           </View>
 
+          {/* Date Picker Modal */}
+          <DatePickerModal
+            visible={showDatePicker}
+            onClose={() => setShowDatePicker(false)}
+            initialDate={selectedDate ? new Date(selectedDate) : new Date()}
+            onConfirm={(date) => {
+              const year = date.getFullYear();
+              const month = String(date.getMonth() + 1).padStart(2, '0');
+              const day = String(date.getDate()).padStart(2, '0');
+              dispatch(setSelectedDate(`${year}-${month}-${day}`));
+            }}
+          />
+
+          {/* Time Slot Picker Modal */}
+          <TimeSlotSelectModal
+            visible={showTimePicker}
+            onClose={() => setShowTimePicker(false)}
+            initialSlot={selectedTimeSlot}
+            onConfirm={(slot) => {
+              dispatch(setSelectedTimeSlot(slot));
+            }}
+          />
+
           {/* Special Requests */}
-          <Text style={styles.blockTitle}>Special Requests (Optional)</Text>
+          <Text style={styles.blockTitleWithOptional}>
+            Special Requests <Text style={styles.optionalLabel}>(Optional)</Text>
+          </Text>
           <TextInput
             style={styles.requestInput}
             placeholder="Any Special Requests?"
             placeholderTextColor={Color.textMuted}
             value={specialRequests}
             onChangeText={(text) => dispatch(setSpecialRequests(text))}
+            multiline={false}
           />
         </View>
 
-        {/* 5. Live Floor View Section - Canvas rests directly on the page background */}
+        {/* 5. Live Floor View Section */}
         <View style={styles.floorPlanBlock}>
           <View style={styles.floorPlanHeaderRow}>
-            <View>
-              <Text style={styles.blockTitle}>Live Floor View</Text>
-              <Text style={styles.floorPlanSubTitle}>Select your preferred table from the live layout</Text>
-            </View>
+            <Text style={styles.floorPlanTitle}>Live Floor View</Text>
             
             {/* Select Floor Dropdown Button */}
             <TouchableOpacity
               style={styles.selectFloorBtn}
               onPress={() => setShowFloorDropdown(!showFloorDropdown)}
             >
-              <Text style={styles.selectFloorBtnText}>Select Floor ∨</Text>
+              <Text style={styles.selectFloorBtnText}>
+                {(() => {
+                  const activeFloor = floors && floors.find((f) => f.id === selectedFloorId);
+                  return activeFloor ? (activeFloor.nameI18n?.en || activeFloor.name) : 'Select Floor';
+                })()}
+              </Text>
+              <View style={styles.selectFloorChevron}>
+                <Text style={styles.selectFloorChevronText}>▾</Text>
+              </View>
             </TouchableOpacity>
           </View>
+          <Text style={styles.floorPlanSubTitle}>Select your preferred table from the live layout</Text>
 
           {/* Floor selection dropdown */}
-          {showFloorDropdown && (
+          {showFloorDropdown && floors && floors.length > 0 && (
             <View style={styles.floorDropdown}>
-              {['Ground Floor', 'First Floor', 'Rooftop'].map((f) => (
-                <TouchableOpacity
-                  key={f}
-                  style={styles.dropdownItem}
-                  onPress={() => {
-                    dispatch(selectFloor(f === 'Ground Floor' ? '1' : '2'));
-                    setShowFloorDropdown(false);
-                  }}
-                >
-                  <Text style={styles.dropdownItemText}>{f}</Text>
-                </TouchableOpacity>
-              ))}
+              {floors.map((f, index) => {
+                const isActive = selectedFloorId === f.id;
+                const label = f.nameI18n?.en || f.name || 'Floor';
+                const firstChar = label.charAt(0).toUpperCase();
+                return (
+                  <TouchableOpacity
+                    key={f.id}
+                    style={[
+                      styles.dropdownItem,
+                      isActive && styles.dropdownItemActive,
+                      index < floors.length - 1 && styles.dropdownItemBorder,
+                    ]}
+                    onPress={() => {
+                      dispatch(selectFloor(f.id));
+                      dispatch(getFloorTables(f.id, selectedDate, selectedTimeSlot));
+                      setShowFloorDropdown(false);
+                    }}
+                  >
+                    <View style={[styles.dropdownItemIcon, isActive && styles.dropdownItemIconActive]}>
+                      <Text style={[styles.dropdownItemIconText, isActive && styles.dropdownItemIconTextActive]}>{firstChar}</Text>
+                    </View>
+                    <Text style={[styles.dropdownItemText, isActive && styles.dropdownItemTextActive]}>{label}</Text>
+                    {isActive && (
+                      <View style={styles.dropdownCheckIcon}>
+                        <Text style={styles.dropdownCheckText}>✓</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           )}
 
           {/* View Mode controls */}
           <View style={styles.viewModeRow}>
             <TouchableOpacity style={styles.modeBtn}>
-              <Text style={styles.modeBtnText}>🖼️ Lounge View</Text>
+              {/* Framed picture icon matching screenshot */}
+              <View style={styles.loungeIcon}>
+                <View style={styles.loungeIconFrame}>
+                  <View style={styles.loungeIconMountain} />
+                  <View style={styles.loungeIconSun} />
+                </View>
+              </View>
+              <Text style={styles.modeBtnText}>Lounge View</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
               style={styles.modeBtn}
               onPress={() => navigation.navigate(NavigationPath.LiveFloorView)}
             >
-              <Text style={styles.modeBtnText}>⤢ View Full Screen</Text>
+              {/* Expand/fullscreen icon matching screenshot */}
+              <View style={styles.expandIcon}>
+                <View style={[styles.expandArrow, styles.expandArrowTL]} />
+                <View style={[styles.expandArrow, styles.expandArrowBR]} />
+              </View>
+              <Text style={styles.modeBtnText}>View Full Screen</Text>
             </TouchableOpacity>
           </View>
 
@@ -449,31 +672,58 @@ const RestaurantDetailsScreen = () => {
             </View>
           </View>
 
-          {/* Miniature Interactive Floor Plan Canvas without border wrappers */}
+          {/* Interactive Floor Plan Canvas */}
           <View style={styles.miniCanvasContainer}>
             <FloorPlanCanvas
+              tables={(selectedFloorId && tablesByFloor[selectedFloorId]) || []}
               selectedTableIds={selectedTableIds}
               onTablePress={handleTableToggle}
+              canvasMeta={(() => {
+                const activeFloor = floors && floors.find((f) => f.id === selectedFloorId);
+                return activeFloor?.canvasMeta;
+              })()}
             />
           </View>
 
-          {/* Selected Table details card */}
-          {selectedTable && (
-            <View style={styles.selectedTableCard}>
-              <View style={styles.selectedTableIconBadge}>
-                <View style={styles.tableCircleIcon} />
-              </View>
-              <View style={styles.selectedTableTexts}>
-                <Text style={styles.selectedTableTitle}>Table No. {selectedTable.num}</Text>
-                <Text style={styles.selectedTableSubTitle}>
-                  {selectedTable.seats} • {selectedFloorId === '1' ? 'Ground Floor' : 'First Floor'}
-                </Text>
-              </View>
-              <View style={styles.checkmarkCircle}>
-                <Text style={styles.checkmarkIcon}>✓</Text>
-              </View>
-            </View>
+          {/* Selected Table Header */}
+          {selectedTableIds.length > 0 && (
+            <Text style={styles.selectedTableHeader}>
+              Selected Table{selectedTableIds.length > 1 ? 's' : ''}
+            </Text>
           )}
+
+          {/* Selected Table details cards — one for each selected table */}
+          {selectedTableIds.map((tableId) => {
+            const allTables = tablesByFloor && selectedFloorId ? (tablesByFloor[selectedFloorId] || []) : [];
+            const matchedTable = allTables.find((t) => t.id === tableId);
+            const rawLabel = matchedTable?.label || matchedTable?.num || tableId;
+            const cleanLabel = rawLabel.replace('T-', '').replace('table-', '');
+            
+            const tableInfo = {
+              num: cleanLabel,
+              seats: matchedTable?.capacity ? `${matchedTable.capacity} Seater` : '4 Seater'
+            };
+            const floorLabel = activeFloor ? (activeFloor.nameI18n?.en || activeFloor.name) : 'Floor Layout';
+
+            return (
+              <View key={tableId} style={styles.selectedTableCard}>
+                <View style={styles.selectedTableIconBadge}>
+                  <View style={styles.tableCircleIcon}>
+                    <Text style={styles.tableCircleNum}>{tableInfo.num}</Text>
+                  </View>
+                </View>
+                <View style={styles.selectedTableTexts}>
+                  <Text style={styles.selectedTableTitle}>Table No. {tableInfo.num}</Text>
+                  <Text style={styles.selectedTableSubTitle}>
+                    {tableInfo.seats} • {floorLabel}
+                  </Text>
+                </View>
+                <View style={styles.checkmarkCircle}>
+                  <Text style={styles.checkmarkIcon}>✓</Text>
+                </View>
+              </View>
+            );
+          })}
 
           {/* Table join toggle */}
           <View style={styles.toggleRow}>
@@ -567,77 +817,91 @@ const RestaurantDetailsScreen = () => {
           </ScrollView>
         </View>
 
-        {/* 8. Amenities Grid (Restored) */}
+        {/* 8. Amenities Grid */}
         <View style={styles.amenitiesBlock}>
           <Text style={styles.blockTitle}>Amenities</Text>
-          <View style={styles.amenitiesGrid}>
-            {[
-              { id: 'a1', label: 'Free Wifi', icon: '📶' },
-              { id: 'a2', label: 'Valet Parking', icon: '🚗' },
-              { id: 'a3', label: 'Outdoor', icon: '⛱️' },
-              { id: 'a4', label: 'Smoking', icon: '🚬' },
-              { id: 'a5', label: 'Live Music', icon: '🎵' },
-              { id: 'a6', label: 'Wheelchair', icon: '♿' },
-              { id: 'a7', label: 'Prayer Area', icon: '🕌' },
-              { id: 'a8', label: 'Kids Friendly', icon: '🧒' }
-            ].map((am) => (
-              <View key={am.id} style={styles.amenityItem}>
-                <Text style={styles.amenityIcon}>{am.icon}</Text>
-                <Text style={styles.amenityLabel}>{am.label}</Text>
-              </View>
-            ))}
-          </View>
+          {selectedRestaurant.amenities && selectedRestaurant.amenities.length > 0 ? (
+            <View style={styles.bulletList}>
+              {selectedRestaurant.amenities.map((amenity, index) => (
+                <Text key={index} style={styles.bulletPoint}>• {amenity}</Text>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.bulletPoint}>• Not Available</Text>
+          )}
         </View>
 
-        {/* 9. Things to Know & Policies (Restored) */}
+        {/* 9. Things to Know & Policies */}
         <View style={styles.policiesBlock}>
           <Text style={styles.blockTitle}>Things to Know</Text>
           <View style={styles.policyList}>
-            <Text style={styles.policyBullet}>• Smart casual dress code is recommended</Text>
-            <Text style={styles.policyBullet}>• Pets are not allowed except certified service animals</Text>
-            <Text style={styles.policyBullet}>• Some seating areas may have live music</Text>
-            <Text style={styles.policyBullet}>• Window seating is subject to availability</Text>
-            <Text style={styles.policyBullet}>• Public holidays may have special menus and pricing</Text>
-            <Text style={styles.policyBullet}>• Peak hours may have limited walk-in availability</Text>
+            {selectedRestaurant.thingsToKnow && selectedRestaurant.thingsToKnow.length > 0 ? (
+              selectedRestaurant.thingsToKnow.map((item, idx) => (
+                <Text key={idx} style={styles.policyBullet}>• {item}</Text>
+              ))
+            ) : (
+              <Text style={styles.policyBullet}>• Not Available</Text>
+            )}
           </View>
 
           <View style={styles.spacer} />
 
           <Text style={styles.blockTitle}>Reservation Policy</Text>
           <View style={styles.policyList}>
-            <Text style={styles.policyBullet}>• Please arrive within 15 minutes of your reserved time</Text>
-            <Text style={styles.policyBullet}>• Tables will be held for up to 15 minutes after the reservation time</Text>
-            <Text style={styles.policyBullet}>• Outside food and beverages are not permitted</Text>
-            <Text style={styles.policyBullet}>• Management reserves the right to reassign tables when necessary</Text>
-            <Text style={styles.policyBullet}>• Large group reservations may require advance confirmation</Text>
+            {selectedRestaurant.reservationPolicy && selectedRestaurant.reservationPolicy.length > 0 ? (
+              selectedRestaurant.reservationPolicy.map((item, idx) => (
+                <Text key={idx} style={styles.policyBullet}>• {item}</Text>
+              ))
+            ) : (
+              <Text style={styles.policyBullet}>• Not Available</Text>
+            )}
           </View>
         </View>
 
-        {/* 10. Reviews Block (Restored) */}
+        {/* 10. Reviews Block */}
         <View style={styles.reviewsBlock}>
           <Text style={styles.blockTitle}>Reviews</Text>
-          <View style={styles.reviewsSummaryCard}>
-            <Text style={styles.ratingBigText}>4.8/5</Text>
-            <Text style={styles.reviewSubText}>5,120 Reviews</Text>
-          </View>
-
-          <View style={styles.reviewCard}>
-            <View style={styles.reviewHeaderRow}>
-              <View style={styles.reviewAvatar}>
-                <Text style={styles.avatarInitial}>C</Text>
-              </View>
-              <View>
-                <Text style={styles.reviewerName}>Customer</Text>
-                <Text style={styles.reviewDate}>06/01/2022</Text>
-              </View>
-            </View>
-            <Text style={styles.reviewStars}>★ ★ ★ ★ ★</Text>
-            <Text style={styles.reviewComment}>
-              Location is apart but if you rent a car & would like to have home stay experiencing, it's absolutely the good choice! Joyuam is easy reachable by Car GPS! Host is
-            </Text>
-          </View>
+          {selectedRestaurant.reviews && selectedRestaurant.reviews.length > 0 ? (
+            <>
+              <Text style={styles.ratingBigText}>{selectedRestaurant.rating || '4.8'}/5</Text>
+              <Text style={styles.reviewSubText}>{selectedRestaurant.reviewCount || '0'} Reviews</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalReviewsContent}>
+                {selectedRestaurant.reviews.map((review) => (
+                  <View key={review.id} style={styles.reviewCard}>
+                    <View style={styles.reviewHeaderRow}>
+                      <View style={styles.reviewAvatar}>
+                        <UserAvatarIcon size={32} />
+                      </View>
+                      <View>
+                        <Text style={styles.reviewerName}>{review.userName || review.name}</Text>
+                        <Text style={styles.reviewDate}>{review.date || 'Recent'}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.reviewStars}>★ ★ ★ ★ ★</Text>
+                    <Text style={styles.reviewComment}>{review.comment}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </>
+          ) : (
+            <Text style={styles.policyBullet}>• Not Available</Text>
+          )}
         </View>
       </ScrollView>
+
+      {/* Sticky Bottom Bar */}
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View style={styles.bottomBarRow}>
+          <Text style={styles.totalAmountLabel}>Total Amount</Text>
+          <Text style={styles.totalAmountVal}>{currency || 'PKR'} {depositAmount !== undefined ? depositAmount.toLocaleString() : 'Not Available'}</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.reserveBtn}
+          onPress={() => navigation.navigate(NavigationPath.DateTimeSelect, { restaurantId: selectedRestaurant?.id })}
+        >
+          <Text style={styles.reserveBtnText}>Reserve Table</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -787,64 +1051,79 @@ const styles = StyleSheet.create({
     marginBottom: Constants.spacing.large,
   },
   highlightsCard: {
-    backgroundColor: '#FFFBEB',
+    backgroundColor: Color.surface,
     borderWidth: 1,
-    borderColor: '#FEF3C7',
+    borderColor: Color.border,
     borderRadius: Constants.borderRadius.medium,
     padding: Constants.spacing.large,
   },
   highlightsHeader: {
-    fontSize: Constants.fontSize.title,
+    fontSize: 17,
     fontWeight: 'bold',
-    color: '#92400E',
-    marginBottom: Constants.spacing.small,
+    color: Color.textPrimary,
+    marginBottom: Constants.spacing.medium,
   },
   bulletList: {
     marginBottom: Constants.spacing.small,
   },
   bulletPoint: {
-    fontSize: Constants.fontSize.body,
-    color: '#78350F',
-    marginBottom: Constants.spacing.tiny,
-    lineHeight: 20,
+    fontSize: 14,
+    color: Color.textSecondary,
+    marginBottom: 6,
+    lineHeight: 22,
+    paddingLeft: 4,
   },
   bookingDetailsBlock: {
     backgroundColor: Color.surface,
-    padding: Constants.spacing.large,
+    paddingHorizontal: Constants.spacing.large,
+    paddingTop: Constants.spacing.large,
+    paddingBottom: Constants.spacing.large,
     marginBottom: Constants.spacing.large,
   },
   blockTitle: {
-    fontSize: Constants.fontSize.title,
+    fontSize: 18,
     fontWeight: 'bold',
     color: Color.textPrimary,
     marginBottom: Constants.spacing.medium,
   },
+  blockTitleWithOptional: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Color.textPrimary,
+    marginBottom: Constants.spacing.medium,
+  },
+  optionalLabel: {
+    fontSize: 15,
+    fontWeight: '400',
+    color: Color.textSecondary,
+  },
   chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: Constants.spacing.large,
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 8,
   },
   chip: {
-    paddingHorizontal: Constants.spacing.medium,
-    paddingVertical: Constants.spacing.small,
-    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1.5,
     borderColor: Color.border,
-    borderRadius: Constants.borderRadius.medium,
-    marginRight: Constants.spacing.small,
-    marginBottom: Constants.spacing.small,
+    borderRadius: 20,
     backgroundColor: Color.surface,
   },
   chipSelected: {
     borderColor: Color.headerBlue,
-    backgroundColor: 'rgba(21, 82, 179, 0.05)',
+    borderWidth: 2,
+    backgroundColor: Color.surface,
   },
   chipText: {
-    fontSize: Constants.fontSize.bodySmall,
+    fontSize: 13,
     color: Color.textSecondary,
   },
   chipTextSelected: {
-    color: Color.headerBlue,
-    fontWeight: 'bold',
+    color: Color.textPrimary,
+    fontWeight: '600',
   },
   datePickerBtn: {
     flexDirection: 'row',
@@ -854,20 +1133,20 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   datePickerBtnText: {
-    fontSize: Constants.fontSize.bodySmall,
+    fontSize: 13,
     color: Color.textSecondary,
-    fontWeight: 'bold',
   },
   dropdownChip: {
-    paddingHorizontal: Constants.spacing.medium,
-    paddingVertical: Constants.spacing.small,
-    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1.5,
     borderColor: Color.border,
-    borderRadius: Constants.borderRadius.medium,
-    justifyContent: 'center',
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   dropdownChipText: {
-    fontSize: Constants.fontSize.bodySmall,
+    fontSize: 13,
     color: Color.textSecondary,
   },
   requestInput: {
@@ -875,83 +1154,226 @@ const styles = StyleSheet.create({
     borderColor: Color.border,
     borderRadius: Constants.borderRadius.medium,
     paddingHorizontal: Constants.spacing.medium,
+    paddingVertical: 12,
     height: 48,
+    fontSize: 14,
     color: Color.textPrimary,
   },
   floorPlanBlock: {
     backgroundColor: Color.surface,
-    padding: Constants.spacing.large,
+    paddingHorizontal: Constants.spacing.large,
+    paddingTop: Constants.spacing.large,
+    paddingBottom: Constants.spacing.large,
     marginBottom: Constants.spacing.large,
   },
   floorPlanHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Constants.spacing.small,
+    marginBottom: 6,
+  },
+  floorPlanTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Color.textPrimary,
   },
   floorPlanSubTitle: {
-    fontSize: Constants.fontSize.bodySmall,
+    fontSize: 13,
     color: Color.textSecondary,
-    marginTop: -8,
-    marginBottom: Constants.spacing.small,
+    marginBottom: 16,
   },
   selectFloorBtn: {
     backgroundColor: Color.headerBlue,
-    paddingHorizontal: Constants.spacing.medium,
-    paddingVertical: Constants.spacing.small,
-    borderRadius: Constants.borderRadius.medium,
+    paddingLeft: 16,
+    paddingRight: 10,
+    paddingVertical: 8,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   selectFloorBtnText: {
     color: Color.white,
-    fontWeight: 'bold',
-    fontSize: Constants.fontSize.bodySmall,
+    fontWeight: '600',
+    fontSize: 13,
+    marginRight: 6,
+  },
+  selectFloorChevron: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectFloorChevronText: {
+    color: Color.white,
+    fontSize: 10,
+    marginTop: -1,
   },
   floorDropdown: {
     backgroundColor: Color.surface,
     borderWidth: 1,
     borderColor: Color.border,
-    borderRadius: Constants.borderRadius.medium,
-    padding: Constants.spacing.small,
+    borderRadius: 12,
+    paddingVertical: 4,
     position: 'absolute',
     right: Constants.spacing.large,
     top: 55,
     zIndex: 20,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    minWidth: 180,
   },
   dropdownItem: {
-    paddingVertical: Constants.spacing.small,
-    paddingHorizontal: Constants.spacing.medium,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dropdownItemActive: {
+    backgroundColor: 'rgba(21, 82, 179, 0.06)',
+  },
+  dropdownItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  dropdownItemIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  dropdownItemIconActive: {
+    backgroundColor: Color.headerBlue,
+  },
+  dropdownItemIconText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: Color.textSecondary,
+  },
+  dropdownItemIconTextActive: {
+    color: Color.white,
   },
   dropdownItemText: {
     color: Color.textPrimary,
-    fontSize: Constants.fontSize.body,
+    fontSize: 14,
+    flex: 1,
+  },
+  dropdownItemTextActive: {
+    color: Color.headerBlue,
+    fontWeight: '600',
+  },
+  dropdownCheckIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Color.headerBlue,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dropdownCheckText: {
+    color: Color.white,
+    fontSize: 11,
+    fontWeight: 'bold',
   },
   viewModeRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: Constants.spacing.medium,
+    gap: 12,
   },
   modeBtn: {
-    flex: 0.48,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: Color.border,
-    borderRadius: Constants.borderRadius.medium,
-    paddingVertical: Constants.spacing.small,
-    alignItems: 'center',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
   },
   modeBtnText: {
     color: Color.textSecondary,
-    fontSize: Constants.fontSize.bodySmall,
-    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  loungeIcon: {
+    marginRight: 6,
+  },
+  loungeIconFrame: {
+    width: 16,
+    height: 13,
+    borderWidth: 1.5,
+    borderColor: Color.textSecondary,
+    borderRadius: 2,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  loungeIconMountain: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderBottomWidth: 6,
+    borderStyle: 'solid',
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: Color.textSecondary,
+    position: 'absolute',
+    bottom: 0,
+    left: 2,
+    transform: [{ rotate: '180deg' }],
+  },
+  loungeIconSun: {
+    width: 3.5,
+    height: 3.5,
+    borderRadius: 1.75,
+    backgroundColor: Color.textSecondary,
+    position: 'absolute',
+    top: 1.5,
+    right: 2,
+  },
+  expandIcon: {
+    width: 14,
+    height: 14,
+    marginRight: 6,
+    position: 'relative',
+  },
+  expandArrow: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderColor: Color.textSecondary,
+    borderWidth: 1.5,
+  },
+  expandArrowTL: {
+    top: 0,
+    left: 0,
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
+  },
+  expandArrowBR: {
+    bottom: 0,
+    right: 0,
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
   },
   legendRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: Constants.spacing.large,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    marginBottom: Constants.spacing.medium,
+    gap: 20,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: Constants.spacing.medium,
   },
   legendDot: {
     width: 10,
@@ -960,7 +1382,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   legendText: {
-    fontSize: Constants.fontSize.bodySmall,
+    fontSize: 13,
     color: Color.textSecondary,
   },
   miniCanvasContainer: {
@@ -971,19 +1393,31 @@ const styles = StyleSheet.create({
   selectedTableCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(46, 204, 113, 0.08)',
+    backgroundColor: 'rgba(46, 204, 113, 0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(46, 204, 113, 0.3)',
-    borderRadius: Constants.borderRadius.medium,
-    padding: Constants.spacing.medium,
-    marginBottom: Constants.spacing.large,
+    borderColor: 'rgba(46, 204, 113, 0.25)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+  },
+  selectedTableHeader: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Color.textPrimary,
+    marginBottom: 10,
   },
   tableCircleIcon: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    borderColor: Color.available,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Color.headerBlue,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tableCircleNum: {
+    color: Color.white,
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   selectedTableIconBadge: {
     marginRight: Constants.spacing.medium,
@@ -992,19 +1426,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   selectedTableTitle: {
-    fontSize: Constants.fontSize.body,
+    fontSize: 15,
     fontWeight: 'bold',
     color: Color.textPrimary,
   },
   selectedTableSubTitle: {
-    fontSize: Constants.fontSize.bodySmall,
+    fontSize: 12,
     color: Color.textSecondary,
     marginTop: 2,
   },
   checkmarkCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: Color.available,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1012,7 +1446,7 @@ const styles = StyleSheet.create({
   checkmarkIcon: {
     color: Color.white,
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: 15,
   },
   toggleRow: {
     flexDirection: 'row',
@@ -1128,26 +1562,35 @@ const styles = StyleSheet.create({
   },
   amenitiesBlock: {
     backgroundColor: Color.surface,
-    padding: Constants.spacing.large,
+    paddingHorizontal: Constants.spacing.large,
+    paddingTop: Constants.spacing.large,
+    paddingBottom: 20,
     marginBottom: Constants.spacing.large,
   },
-  amenitiesGrid: {
+  amenitiesRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   amenityItem: {
-    width: '25%',
+    flex: 1,
     alignItems: 'center',
-    marginBottom: Constants.spacing.large,
   },
-  amenityIcon: {
-    fontSize: 22,
-    marginBottom: Constants.spacing.tiny,
+  amenityIconContainer: {
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
   },
   amenityLabel: {
-    fontSize: 10,
-    color: Color.textSecondary,
+    fontSize: 12,
+    color: '#6B7280',
     textAlign: 'center',
+  },
+  amenityDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: '#E5E7EB',
   },
   policiesBlock: {
     backgroundColor: Color.surface,
@@ -1168,67 +1611,123 @@ const styles = StyleSheet.create({
   },
   reviewsBlock: {
     backgroundColor: Color.surface,
-    padding: Constants.spacing.large,
-  },
-  reviewsSummaryCard: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: Constants.borderRadius.medium,
-    padding: Constants.spacing.large,
-    alignItems: 'center',
-    marginBottom: Constants.spacing.large,
+    paddingHorizontal: Constants.spacing.large,
+    paddingTop: Constants.spacing.large,
+    paddingBottom: 110, // extra padding so content doesn't get hidden behind bottom sticky bar
   },
   ratingBigText: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
     color: Color.textPrimary,
-  },
-  reviewSubText: {
-    fontSize: Constants.fontSize.bodySmall,
-    color: Color.textSecondary,
     marginTop: Constants.spacing.tiny,
   },
+  reviewSubText: {
+    fontSize: 13,
+    color: Color.textSecondary,
+    marginBottom: Constants.spacing.medium,
+  },
+  horizontalReviewsContent: {
+    paddingRight: Constants.spacing.large,
+    gap: 16,
+  },
   reviewCard: {
-    borderBottomWidth: 1,
-    borderBottomColor: Color.border,
-    paddingVertical: Constants.spacing.medium,
+    width: 290,
+    borderWidth: 1,
+    borderColor: Color.border,
+    borderRadius: 12,
+    padding: Constants.spacing.large,
+    backgroundColor: Color.surface,
   },
   reviewHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Constants.spacing.small,
+    marginBottom: 8,
   },
   reviewAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(21, 82, 179, 0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: Constants.spacing.medium,
-  },
-  avatarInitial: {
-    color: Color.headerBlue,
-    fontWeight: 'bold',
-    fontSize: Constants.fontSize.body,
+    marginRight: 10,
   },
   reviewerName: {
-    fontSize: Constants.fontSize.bodySmall,
+    fontSize: 14,
     fontWeight: 'bold',
     color: Color.textPrimary,
   },
   reviewDate: {
-    fontSize: 10,
+    fontSize: 11,
     color: Color.textSecondary,
+    marginTop: 1,
   },
   reviewStars: {
     color: Color.starColor,
-    fontSize: 12,
-    marginBottom: Constants.spacing.tiny,
+    fontSize: 14,
+    marginBottom: 8,
   },
   reviewComment: {
-    fontSize: Constants.fontSize.bodySmall,
+    fontSize: 13,
     color: Color.textSecondary,
     lineHeight: 18,
+    marginBottom: 12,
+  },
+  reviewImagesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reviewThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 4,
+  },
+  viewAllBtn: {
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  viewAllText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: Color.headerBlue,
+  },
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: Color.surface,
+    borderTopWidth: 1,
+    borderTopColor: Color.border,
+    paddingHorizontal: Constants.spacing.large,
+    paddingTop: 12,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+  },
+  bottomBarRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  totalAmountLabel: {
+    fontSize: 15,
+    color: Color.textSecondary,
+  },
+  totalAmountVal: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Color.textPrimary,
+  },
+  reserveBtn: {
+    backgroundColor: Color.headerBlue,
+    borderRadius: 12,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reserveBtnText: {
+    color: Color.white,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   loaderContainer: {
     flex: 1,

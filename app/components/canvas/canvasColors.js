@@ -5,9 +5,9 @@ export const CANVAS_COLORS = {
     label: '#27AE60',
   },
   occupied: {
-    fill: 'rgba(52, 152, 219, 0.1)',
-    stroke: '#3498DB',
-    label: '#2980B9',
+    fill: 'rgba(59, 130, 246, 0.12)',
+    stroke: '#3B82F6',
+    label: '#2563EB',
   },
   reserved: {
     fill: 'rgba(243, 156, 18, 0.1)',

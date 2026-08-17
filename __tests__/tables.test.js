@@ -17,6 +17,7 @@ describe('tables Redux Duck', () => {
   const initialState = {
     loading: false,
     error: null,
+    branchId: null,
     floors: [],
     selectedFloorId: null,
     tablesByFloor: {},

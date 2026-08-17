@@ -39,11 +39,18 @@ const restaurantReducer = (state = initialState, action) => {
 
     case SEARCH_RESTAURANTS_PENDING:
     case GET_HOME_LISTINGS_PENDING:
+      return {
+        ...state,
+        loading: true,
+        error: null,
+      };
+
     case GET_RESTAURANT_DETAILS_PENDING:
       return {
         ...state,
         loading: true,
         error: null,
+        selectedRestaurant: null,
       };
 
     case SEARCH_RESTAURANTS_SUCCESS:

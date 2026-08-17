@@ -3,10 +3,10 @@ import React from 'react';
 import { G, Rect, Text } from 'react-native-svg';
 import { CANVAS_COLORS } from '../canvasColors';
 
-export function RectTableRenderer({ x, y, width = 100, height = 50, status = 'reserved', label, angle = 0 }) {
+export function RectTableRenderer({ x, y, width = 100, height = 50, status = 'reserved', label, angle = 0, capacity = 4 }) {
   const colors = CANVAS_COLORS[status] || CANVAS_COLORS.neutral;
   
-  const numChairsPerSide = 3;
+  const numChairsPerSide = Math.max(1, Math.floor(capacity / 2));
   const chairWidth = 14;
   const chairHeight = 12;
   const seatRadius = 3;

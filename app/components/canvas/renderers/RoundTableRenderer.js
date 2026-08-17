@@ -3,9 +3,9 @@ import React from 'react';
 import { G, Circle, Rect, Text } from 'react-native-svg';
 import { CANVAS_COLORS } from '../canvasColors';
 
-export function RoundTableRenderer({ x, y, radius = 30, status = 'available', label, angle = 0 }) {
+export function RoundTableRenderer({ x, y, radius = 30, status = 'available', label, angle = 0, capacity = 4 }) {
   const colors = CANVAS_COLORS[status] || CANVAS_COLORS.neutral;
-  const numSeats = 4; // standard 4 seats
+  const numSeats = capacity; // use database capacity for seats count
   const seatWidth = 14;
   const seatHeight = 14;
   const seatRadius = 3;

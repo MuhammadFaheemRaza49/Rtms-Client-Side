@@ -47,6 +47,32 @@ jest.mock('../app/redux/restaurant', () => {
   };
 });
 
+// Mock tables operations
+jest.mock('../app/redux/tables', () => {
+  const actual = jest.requireActual('../app/redux/tables');
+  return {
+    __esModule: true,
+    ...actual,
+    getTables: () => (dispatch) => {
+      dispatch(actual.getTablesPending());
+      dispatch(
+        actual.getTablesSuccess({
+          floors: [
+            { id: '1', nameI18n: { en: 'Ground Floor' }, name: 'Ground Floor' },
+            { id: '2', nameI18n: { en: 'First Floor' }, name: 'First Floor' },
+          ],
+          tablesByFloor: {
+            '1': [
+              { id: 'table-1', label: 'T-1', shape: 'ROUND', posX: 100, posY: 100, width: 50, height: 50 },
+            ],
+            '2': [],
+          },
+        })
+      );
+    },
+  };
+});
+
 test('RestaurantDetailsScreen compiles and renders safely', () => {
   let tree;
   ReactTestRenderer.act(() => {

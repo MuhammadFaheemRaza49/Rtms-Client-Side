@@ -22,6 +22,11 @@ import {
   getHomeListings,
   getRestaurantDetails,
   setSearchQuery,
+  selectTrending,
+  selectNearby,
+  selectFeatured,
+  selectRestaurantLoading,
+  selectRestaurantError,
 } from '../../redux/restaurant';
 import { setGuestCount, setSelectedDate } from '../../redux/booking';
 
@@ -90,14 +95,12 @@ const SearchRestaurantScreen = () => {
   const dispatch = useDispatch();
 
   // Redux Selectors
-  const {
-    trending,
-    nearby,
-    featured,
-    searchQuery,
-    loading: restaurantLoading,
-    error: restaurantError,
-  } = useSelector((state) => state.restaurant);
+  const trending = useSelector(selectTrending);
+  const nearby = useSelector(selectNearby);
+  const featured = useSelector(selectFeatured);
+  const restaurantLoading = useSelector(selectRestaurantLoading);
+  const restaurantError = useSelector(selectRestaurantError);
+  const { searchQuery } = useSelector((state) => state.restaurant);
 
   const { selectedDate, guestCount } = useSelector((state) => state.booking);
 
@@ -229,14 +232,6 @@ const SearchRestaurantScreen = () => {
   };
 
   const renderTrendingSection = () => {
-    if (restaurantLoading && trending.length === 0) {
-      return (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="small" color={Color.headerBlue} />
-        </View>
-      );
-    }
-
     return (
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>Trending Restaurants</Text>
@@ -303,14 +298,6 @@ const SearchRestaurantScreen = () => {
   };
 
   const renderNearbySection = () => {
-    if (restaurantLoading && nearby.length === 0) {
-      return (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="small" color={Color.headerBlue} />
-        </View>
-      );
-    }
-
     return (
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeaderRow}>
@@ -331,14 +318,6 @@ const SearchRestaurantScreen = () => {
   };
 
   const renderFeaturedSection = () => {
-    if (restaurantLoading && featured.length === 0) {
-      return (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="small" color={Color.headerBlue} />
-        </View>
-      );
-    }
-
     return (
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>Featured Experiences</Text>
@@ -361,23 +340,50 @@ const SearchRestaurantScreen = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {restaurantError && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>
-              {restaurantError || 'Failed to load restaurant list.'}
+        {restaurantError ? (
+          <View style={styles.premiumErrorCard}>
+            <View style={styles.errorIconCircle}>
+              <Text style={styles.errorIconText}>⚠️</Text>
+            </View>
+            <Text style={styles.premiumErrorTitle}>
+              {String(restaurantError).toLowerCase().includes('network') ? 'Connection Issue' : 'Service Unavailable'}
+            </Text>
+            <Text style={styles.premiumErrorSubtext}>
+              {(() => {
+                const errStr = String(restaurantError).toLowerCase();
+                if (errStr.includes('network') || errStr.includes('econnreset') || errStr.includes('status code 404') || errStr.includes('401')) {
+                  return 'We are having trouble connecting to the server. Please verify your connection or ensure the service is running.';
+                }
+                if (errStr.includes('500') || errStr.includes('internal')) {
+                  return 'The server encountered an unexpected issue. We are working to resolve this as quickly as possible.';
+                }
+                return restaurantError || 'Failed to load restaurant list.';
+              })()}
             </Text>
             <TouchableOpacity
-              style={styles.retryButton}
+              style={styles.premiumRetryBtn}
               onPress={() => dispatch(getHomeListings())}
             >
-              <Text style={styles.retryText}>Retry</Text>
+              <Text style={styles.premiumRetryText}>Try Again</Text>
             </TouchableOpacity>
           </View>
+        ) : restaurantLoading && trending.length === 0 ? (
+          <View style={[styles.loaderContainer, { height: 350, justifyContent: 'center', alignItems: 'center' }]}>
+            <ActivityIndicator size="large" color={Color.headerBlue} />
+          </View>
+        ) : trending.length === 0 && nearby.length === 0 && featured.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyIcon}>🌸</Text>
+            <Text style={styles.emptyText}>No Restaurants Available Right Now</Text>
+            <Text style={styles.emptySubtext}>Please check back later or try adjusting your filters!</Text>
+          </View>
+        ) : (
+          <>
+            {renderTrendingSection()}
+            {renderNearbySection()}
+            {renderFeaturedSection()}
+          </>
         )}
-
-        {renderTrendingSection()}
-        {renderNearbySection()}
-        {renderFeaturedSection()}
       </ScrollView>
 
       <DatePickerModal
@@ -608,30 +614,83 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  errorContainer: {
+  premiumErrorCard: {
+    backgroundColor: Color.surface,
     padding: Constants.spacing.large,
-    alignItems: 'center',
-    backgroundColor: '#FEE2E2',
     marginHorizontal: Constants.spacing.large,
     borderRadius: Constants.borderRadius.medium,
+    borderWidth: 1,
+    borderColor: Color.border,
+    alignItems: 'center',
+    marginTop: Constants.spacing.medium,
+    marginBottom: Constants.spacing.medium,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  errorIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: Constants.spacing.medium,
   },
-  errorText: {
-    color: '#DC2626',
+  errorIconText: {
+    fontSize: 20,
+  },
+  premiumErrorTitle: {
     fontSize: Constants.fontSize.body,
-    marginBottom: Constants.spacing.medium,
+    fontWeight: 'bold',
+    color: Color.textPrimary,
+    marginBottom: Constants.spacing.tiny,
     textAlign: 'center',
   },
-  retryButton: {
-    backgroundColor: '#DC2626',
-    paddingHorizontal: Constants.spacing.large,
-    paddingVertical: Constants.spacing.small,
-    borderRadius: Constants.borderRadius.small,
+  premiumErrorSubtext: {
+    fontSize: Constants.fontSize.bodySmall,
+    color: Color.textSecondary,
+    textAlign: 'center',
+    marginBottom: Constants.spacing.large,
+    lineHeight: 18,
+    paddingHorizontal: Constants.spacing.small,
   },
-  retryText: {
+  premiumRetryBtn: {
+    backgroundColor: Color.headerBlue,
+    paddingHorizontal: Constants.spacing.large,
+    paddingVertical: Constants.spacing.small + 2,
+    borderRadius: 20,
+    minWidth: 110,
+    alignItems: 'center',
+  },
+  premiumRetryText: {
     color: Color.white,
     fontWeight: 'bold',
-    fontSize: Constants.fontSize.body,
+    fontSize: Constants.fontSize.bodySmall,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Constants.spacing.xlarge * 2,
+    paddingHorizontal: Constants.spacing.large,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: Constants.spacing.medium,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Color.textPrimary,
+    textAlign: 'center',
+    marginBottom: Constants.spacing.tiny,
+  },
+  emptySubtext: {
+    fontSize: 13,
+    color: Color.textSecondary,
+    textAlign: 'center',
   },
 });
 

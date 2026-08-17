@@ -3,6 +3,7 @@ import {
   getTablesPending,
   getTablesSuccess,
   getTablesFailure,
+  selectFloor,
 } from './actions';
 
 /**
@@ -12,23 +13,32 @@ import {
  * @param {string} timeSlot
  */
 export const getTables = (restaurantId, date, timeSlot) => {
-  return async (dispatch) => {
+  return async (dispatch, getState) => {
     dispatch(getTablesPending());
     try {
-      // Placeholder endpoint URL. Update this path and parameter names when the backend is finalized.
-      // E.g., GET `/restaurants/${restaurantId}/tables?date=${date}&timeSlot=${timeSlot}`
-      const url = `/restaurants/${restaurantId}/tables`;
+      const branchId = restaurantId || '00000000-0000-7000-8000-000000000030';
       
-      const response = await RestApi.get(url, {
-        params: {
-          date,
-          timeSlot,
-        },
-      });
+      // 1. Fetch floors belonging to the branch (Only 1 API call!)
+      const floors = await RestApi.get(`/portal/branches/${branchId}/floors`);
+      
+      const payload = {
+        branchId,
+        floors: floors || [],
+        tablesByFloor: {},
+      };
 
-      // The reducer expects the response payload to contain:
-      // { floors: [...], tablesByFloor: {...} }
-      dispatch(getTablesSuccess(response));
+      dispatch(getTablesSuccess(payload));
+      
+      // 2. Automatically load tables for the selected or first floor
+      if (Array.isArray(floors) && floors.length > 0) {
+        const state = getState();
+        const selectedFloorId = state.tables?.selectedFloorId;
+        const activeFloorId = floors.some(f => f.id === selectedFloorId) ? selectedFloorId : floors[0].id;
+        
+        dispatch(selectFloor(activeFloorId));
+        dispatch(getFloorTables(activeFloorId, date, timeSlot));
+      }
+      return payload;
     } catch (error) {
       const errorMessage =
         error?.response?.data?.message ||
@@ -38,3 +48,24 @@ export const getTables = (restaurantId, date, timeSlot) => {
     }
   };
 };
+
+export const getFloorTables = (floorId, date, timeSlot) => {
+  return async (dispatch, getState) => {
+    const state = getState();
+    const alreadyLoaded = state.tables?.tablesByFloor?.[floorId];
+    if (alreadyLoaded && alreadyLoaded.length > 0) {
+      return; // Skip loading if cached already
+    }
+    try {
+      // Fetch tables for ONLY this floor (Only 1 API call!)
+      const tables = await RestApi.get(`/portal/floors/${floorId}/tables`);
+      dispatch({
+        type: 'tables/GET_FLOOR_TABLES_SUCCESS',
+        payload: { floorId, tables: tables || [] },
+      });
+    } catch (error) {
+      console.warn(`Failed to fetch tables for floor ${floorId}:`, error.message);
+    }
+  };
+};
+

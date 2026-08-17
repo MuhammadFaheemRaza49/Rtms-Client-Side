@@ -11,8 +11,9 @@ const Color = {
   
   // Status & Utility Colors
   available: '#2ECC71',
-  occupied: '#E74C3C',
+  occupied: '#3B82F6',
   reserved: '#F39C12',
+  selected: '#1552B3',            // Cobalt blue for selected items (matches headerBlue)
   starColor: '#F5A623',          // Orange/gold color for rating stars
   
   // Text Colors
