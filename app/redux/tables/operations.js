@@ -14,29 +14,42 @@ import {
  */
 export const getTables = (restaurantId, date, timeSlot) => {
   return async (dispatch, getState) => {
-    dispatch(getTablesPending());
+    const branchId = restaurantId || '00000000-0000-7000-8000-000000000030';
+    const timeStr = timeSlot?.label || '';
+    const cacheKey = `${branchId}_${date || ''}_${timeStr}`;
+
+    dispatch(getTablesPending({ branchId, cacheKey }));
     try {
-      const branchId = restaurantId || '00000000-0000-7000-8000-000000000030';
+      // Fetch branch status including floors, tables, and bookings for target date & time
+      const response = await RestApi.get(`/portal/branches/${branchId}/tables/status?date=${date || ''}&time=${timeStr}`);
       
-      // 1. Fetch floors belonging to the branch (Only 1 API call!)
-      const floors = await RestApi.get(`/portal/branches/${branchId}/floors`);
+      // Filter out empty floors that have no tables to match manager layout and keep UX clean
+      const floors = (response.floors || []).filter(f => f.tables && f.tables.length > 0);
+      const tablesByFloor = {};
+      
+      if (Array.isArray(floors)) {
+        floors.forEach((floor) => {
+          tablesByFloor[floor.floorId] = floor.tables || [];
+        });
+      }
       
       const payload = {
         branchId,
-        floors: floors || [],
-        tablesByFloor: {},
+        cacheKey,
+        floors,
+        tablesByFloor,
       };
 
       dispatch(getTablesSuccess(payload));
       
-      // 2. Automatically load tables for the selected or first floor
-      if (Array.isArray(floors) && floors.length > 0) {
+      if (floors.length > 0) {
         const state = getState();
         const selectedFloorId = state.tables?.selectedFloorId;
-        const activeFloorId = floors.some(f => f.id === selectedFloorId) ? selectedFloorId : floors[0].id;
+        const activeFloorId = floors.some(f => f.floorId === selectedFloorId || f.id === selectedFloorId)
+          ? selectedFloorId
+          : floors[0].floorId;
         
         dispatch(selectFloor(activeFloorId));
-        dispatch(getFloorTables(activeFloorId, date, timeSlot));
       }
       return payload;
     } catch (error) {
@@ -57,15 +70,16 @@ export const getFloorTables = (floorId, date, timeSlot) => {
       return; // Skip loading if cached already
     }
     try {
-      // Fetch tables for ONLY this floor (Only 1 API call!)
-      const tables = await RestApi.get(`/portal/floors/${floorId}/tables`);
+      const branchId = state.tables?.branchId || '00000000-0000-7000-8000-000000000030';
+      const timeStr = timeSlot?.label || '';
+      const response = await RestApi.get(`/portal/branches/${branchId}/tables/status?date=${date || ''}&time=${timeStr}`);
+      const floor = response.floors?.find(f => f.floorId === floorId);
       dispatch({
         type: 'tables/GET_FLOOR_TABLES_SUCCESS',
-        payload: { floorId, tables: tables || [] },
+        payload: { floorId, tables: floor?.tables || [] },
       });
     } catch (error) {
       console.warn(`Failed to fetch tables for floor ${floorId}:`, error.message);
     }
   };
 };
-

@@ -3,6 +3,12 @@ import {
   createBookingPending,
   createBookingSuccess,
   createBookingFailure,
+  getPolicyPending,
+  getPolicySuccess,
+  getPolicyFailure,
+  getAvailabilityPending,
+  getAvailabilitySuccess,
+  getAvailabilityFailure,
 } from './actions';
 
 /**
@@ -85,6 +91,47 @@ export const createBooking = (bookingPayload, branchId) => {
         error?.message ||
         'Failed to create booking';
       dispatch(createBookingFailure(errorMessage));
+      throw error;
+    }
+  };
+};
+
+export const getBookingPolicy = (branchId) => {
+  return async (dispatch, getState) => {
+    const activeBranchId = branchId || '00000000-0000-7000-8000-000000000030';
+    const state = getState();
+    const isCached = !!(state.booking?.policyCache && state.booking.policyCache[activeBranchId]);
+    dispatch(getPolicyPending(activeBranchId));
+    try {
+      const response = await RestApi.get(`/portal/branches/${activeBranchId}/booking-policy`);
+      dispatch(getPolicySuccess({ branchId: activeBranchId, policy: response }));
+      return response;
+    } catch (error) {
+      dispatch(getPolicyFailure(error.message || 'Failed to fetch policy'));
+      throw error;
+    }
+  };
+};
+
+export const getAvailability = (branchId, date, partySize, duration) => {
+  return async (dispatch, getState) => {
+    const activeBranchId = branchId || '00000000-0000-7000-8000-000000000030';
+    const cacheKey = `${activeBranchId}_${date}_${partySize}`;
+    const state = getState();
+    const isCached = !!(state.booking?.availabilityCache && state.booking.availabilityCache[cacheKey]);
+    dispatch(getAvailabilityPending(cacheKey));
+    try {
+      const response = await RestApi.get(`/portal/branches/${activeBranchId}/availability`, {
+        params: {
+          date,
+          partySize,
+          duration,
+        },
+      });
+      dispatch(getAvailabilitySuccess({ cacheKey, slots: response?.slots || [] }));
+      return response;
+    } catch (error) {
+      dispatch(getAvailabilityFailure(error.message || 'Failed to fetch availability'));
       throw error;
     }
   };

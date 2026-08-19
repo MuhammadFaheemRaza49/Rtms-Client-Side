@@ -186,14 +186,11 @@ export const searchRestaurants = (query, date, guestCount) => {
 export const getRestaurantDetails = (restaurantId) => {
   return async (dispatch, getState) => {
     const state = getState();
-    const currentDetails = state.restaurant.selectedRestaurant;
     const targetId = restaurantId || '00000000-0000-7000-8000-000000000030';
 
-    // Cache-First: If the selected restaurant details are already loaded in Redux, skip the loading screen!
-    const isCached = currentDetails && currentDetails.id === targetId;
-    if (!isCached) {
-      dispatch(getRestaurantDetailsPending());
-    }
+    // Cache-First: Check if details are already in the detailsCache dictionary!
+    const isCached = !!(state.restaurant.detailsCache && state.restaurant.detailsCache[targetId]);
+    dispatch(getRestaurantDetailsPending(targetId));
 
     try {
       // Fetch the consolidated full branch profile in 1 single HTTP request!

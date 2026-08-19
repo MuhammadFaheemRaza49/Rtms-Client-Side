@@ -25,25 +25,33 @@ const initialState = {
     highChairCount: 0,
     wheelchair: false,
   },
+  tablesCache: {},
 };
 
 const tablesReducer = (state = initialState, action) => {
   switch (action.type) {
-    case GET_TABLES_PENDING:
+    case GET_TABLES_PENDING: {
+      const { branchId, cacheKey } = action.payload || {};
+      const isSameBranch = state.branchId === branchId;
+      const cached = state.tablesCache && state.tablesCache[cacheKey];
       return {
         ...state,
-        loading: true,
+        loading: !cached,
         error: null,
-        floors: [],
-        tablesByFloor: {},
-        selectedFloorId: null,
-        selectedTableIds: [],
+        branchId,
+        floors: cached ? cached.floors : (isSameBranch ? state.floors : []),
+        tablesByFloor: cached ? cached.tablesByFloor : (isSameBranch ? state.tablesByFloor : {}),
+        selectedFloorId: cached ? cached.selectedFloorId : (isSameBranch ? state.selectedFloorId : null),
+        selectedTableIds: isSameBranch ? state.selectedTableIds : [],
       };
+    }
 
     case GET_TABLES_SUCCESS: {
       const floors = action.payload?.floors || [];
       const tablesByFloor = action.payload?.tablesByFloor || {};
       const firstFloorId = floors.length > 0 ? floors[0].id : null;
+      const selectedFloorId = state.selectedFloorId && floors.some(f => f.id === state.selectedFloorId) ? state.selectedFloorId : firstFloorId;
+      const cacheKey = action.payload?.cacheKey;
       return {
         ...state,
         loading: false,
@@ -51,7 +59,11 @@ const tablesReducer = (state = initialState, action) => {
         branchId: action.payload?.branchId || null,
         floors,
         tablesByFloor,
-        selectedFloorId: state.selectedFloorId && floors.some(f => f.id === state.selectedFloorId) ? state.selectedFloorId : firstFloorId,
+        selectedFloorId,
+        tablesCache: cacheKey ? {
+          ...state.tablesCache,
+          [cacheKey]: { floors, tablesByFloor, selectedFloorId },
+        } : state.tablesCache,
       };
     }
 

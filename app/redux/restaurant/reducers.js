@@ -21,6 +21,7 @@ const initialState = {
   nearby: [],
   featured: [],
   selectedRestaurant: null,
+  detailsCache: {},
 };
 
 const restaurantReducer = (state = initialState, action) => {
@@ -45,13 +46,15 @@ const restaurantReducer = (state = initialState, action) => {
         error: null,
       };
 
-    case GET_RESTAURANT_DETAILS_PENDING:
+    case GET_RESTAURANT_DETAILS_PENDING: {
+      const cached = state.detailsCache && state.detailsCache[action.payload];
       return {
         ...state,
-        loading: true,
+        loading: !cached,
         error: null,
-        selectedRestaurant: null,
+        selectedRestaurant: cached || null,
       };
+    }
 
     case SEARCH_RESTAURANTS_SUCCESS:
       return {
@@ -71,13 +74,19 @@ const restaurantReducer = (state = initialState, action) => {
         featured: action.payload?.featured || [],
       };
 
-    case GET_RESTAURANT_DETAILS_SUCCESS:
+    case GET_RESTAURANT_DETAILS_SUCCESS: {
+      const details = action.payload || null;
       return {
         ...state,
         loading: false,
         error: null,
-        selectedRestaurant: action.payload || null,
+        selectedRestaurant: details,
+        detailsCache: details ? {
+          ...state.detailsCache,
+          [details.id]: details,
+        } : state.detailsCache,
       };
+    }
 
     case SEARCH_RESTAURANTS_FAILURE:
     case GET_HOME_LISTINGS_FAILURE:

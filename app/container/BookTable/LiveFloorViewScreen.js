@@ -5,6 +5,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -59,7 +60,7 @@ export default function LiveFloorViewScreen() {
   };
 
   const activeFloor = floors && floors.find((f) => f.id === selectedFloorId);
-  const floorTables = (selectedFloorId && tablesByFloor[selectedFloorId]) || [];
+  const floorTables = (selectedFloorId && tablesByFloor && tablesByFloor[selectedFloorId]) || [];
 
   return (
     <View style={styles.container}>
@@ -72,6 +73,29 @@ export default function LiveFloorViewScreen() {
           <Text style={styles.headerTitle}>Select Table</Text>
         </View>
       </View>
+
+      {/* Floor Tabs Selection */}
+      {floors && floors.length > 0 && (
+        <View style={styles.floorTabsWrapper}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.floorTabsContainer}>
+            {floors.map((f) => {
+              const isActive = selectedFloorId === f.id || selectedFloorId === f.floorId;
+              const label = f.nameI18n?.en || f.name || 'Floor';
+              return (
+                <TouchableOpacity
+                  key={f.id || f.floorId}
+                  style={[styles.floorTab, isActive && styles.floorTabActive]}
+                  onPress={() => dispatch(selectFloor(f.floorId || f.id))}
+                >
+                  <Text style={[styles.floorTabText, isActive && styles.floorTabTextActive]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Floor view title info */}
       <View style={styles.infoArea}>
@@ -93,6 +117,7 @@ export default function LiveFloorViewScreen() {
             selectedTableIds={selectedTableIds}
             onTablePress={handleTablePress}
             canvasMeta={activeFloor?.canvasMeta}
+            scrollable={true}
           />
         )}
       </View>
@@ -181,11 +206,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Color.surface,
-    marginHorizontal: Constants.spacing.large,
-    borderRadius: Constants.borderRadius.large,
-    borderWidth: 1,
-    borderColor: Color.border,
-    padding: Constants.spacing.medium,
+    marginHorizontal: 0,
+    padding: 0,
+    borderWidth: 0,
   },
   legendRow: {
     flexDirection: 'row',
@@ -246,6 +269,36 @@ const styles = StyleSheet.create({
   proceedBtnText: {
     color: Color.white,
     fontSize: 16,
+    fontWeight: 'bold',
+  },
+  floorTabsWrapper: {
+    backgroundColor: Color.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Color.border,
+    paddingVertical: 10,
+  },
+  floorTabsContainer: {
+    paddingHorizontal: Constants.spacing.large,
+    gap: 8,
+  },
+  floorTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Color.border,
+    backgroundColor: Color.surface,
+  },
+  floorTabActive: {
+    borderColor: Color.headerBlue,
+    backgroundColor: Color.headerBlue,
+  },
+  floorTabText: {
+    fontSize: 14,
+    color: Color.textSecondary,
+  },
+  floorTabTextActive: {
+    color: Color.white,
     fontWeight: 'bold',
   },
 });

@@ -278,6 +278,7 @@ const RestaurantDetailsScreen = () => {
   const [showFloorDropdown, setShowFloorDropdown] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [parentScrollEnabled, setParentScrollEnabled] = useState(true);
 
   // Fetch details, floors, and tables on mount
   useEffect(() => {
@@ -285,11 +286,13 @@ const RestaurantDetailsScreen = () => {
     if (!selectedRestaurant || selectedRestaurant.id !== targetId) {
       dispatch(getRestaurantDetails(targetId));
     }
-    // Preload floors and tables list to render the mini canvas layout instantly
-    if (loadedBranchId !== targetId) {
-      dispatch(getTables(targetId, selectedDate, selectedTimeSlot));
-    }
-  }, [dispatch, restaurantId, selectedRestaurant, loadedBranchId, selectedDate, selectedTimeSlot]);
+  }, [dispatch, restaurantId, selectedRestaurant]);
+
+  // Preload floors and tables list to render the mini canvas layout instantly, updating on date/time change
+  useEffect(() => {
+    const targetId = restaurantId || '00000000-0000-7000-8000-000000000030';
+    dispatch(getTables(targetId, selectedDate, selectedTimeSlot));
+  }, [dispatch, restaurantId, selectedDate, selectedTimeSlot]);
 
   if (loading || !selectedRestaurant) {
     return (
@@ -357,7 +360,11 @@ const RestaurantDetailsScreen = () => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        scrollEnabled={parentScrollEnabled}
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* 1. Hero Image Header Block */}
         <View style={styles.heroContainer}>
           <Image
@@ -675,13 +682,15 @@ const RestaurantDetailsScreen = () => {
           {/* Interactive Floor Plan Canvas */}
           <View style={styles.miniCanvasContainer}>
             <FloorPlanCanvas
-              tables={(selectedFloorId && tablesByFloor[selectedFloorId]) || []}
+              tables={(selectedFloorId && tablesByFloor && tablesByFloor[selectedFloorId]) || []}
               selectedTableIds={selectedTableIds}
               onTablePress={handleTableToggle}
               canvasMeta={(() => {
                 const activeFloor = floors && floors.find((f) => f.id === selectedFloorId);
                 return activeFloor?.canvasMeta;
               })()}
+              onTouchStart={() => setParentScrollEnabled(false)}
+              onTouchEnd={() => setParentScrollEnabled(true)}
             />
           </View>
 

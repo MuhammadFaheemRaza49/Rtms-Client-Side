@@ -7,6 +7,12 @@ import {
   CREATE_BOOKING_PENDING,
   CREATE_BOOKING_SUCCESS,
   CREATE_BOOKING_FAILURE,
+  GET_POLICY_PENDING,
+  GET_POLICY_SUCCESS,
+  GET_POLICY_FAILURE,
+  GET_AVAILABILITY_PENDING,
+  GET_AVAILABILITY_SUCCESS,
+  GET_AVAILABILITY_FAILURE,
 } from './types';
 
 export const setSelectedDate = (date) => ({
@@ -44,5 +50,35 @@ export const createBookingSuccess = (response) => ({
 
 export const createBookingFailure = (error) => ({
   type: CREATE_BOOKING_FAILURE,
+  payload: error,
+});
+
+export const getPolicyPending = (branchId) => ({
+  type: GET_POLICY_PENDING,
+  payload: branchId,
+});
+
+export const getPolicySuccess = (data) => ({
+  type: GET_POLICY_SUCCESS,
+  payload: data,
+});
+
+export const getPolicyFailure = (error) => ({
+  type: GET_POLICY_FAILURE,
+  payload: error,
+});
+
+export const getAvailabilityPending = (cacheKey) => ({
+  type: GET_AVAILABILITY_PENDING,
+  payload: cacheKey,
+});
+
+export const getAvailabilitySuccess = (data) => ({
+  type: GET_AVAILABILITY_SUCCESS,
+  payload: data,
+});
+
+export const getAvailabilityFailure = (error) => ({
+  type: GET_AVAILABILITY_FAILURE,
   payload: error,
 });

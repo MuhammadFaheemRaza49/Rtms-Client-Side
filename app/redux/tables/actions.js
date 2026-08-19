@@ -12,8 +12,9 @@ import {
   RESET_TABLE_SELECTION,
 } from './types';
 
-export const getTablesPending = () => ({
+export const getTablesPending = (data) => ({
   type: GET_TABLES_PENDING,
+  payload: data,
 });
 
 export const getTablesSuccess = (data) => ({

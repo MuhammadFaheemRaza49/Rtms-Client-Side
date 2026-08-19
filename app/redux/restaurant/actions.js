@@ -49,8 +49,9 @@ export const getHomeListingsFailure = (error) => ({
   payload: error,
 });
 
-export const getRestaurantDetailsPending = () => ({
+export const getRestaurantDetailsPending = (restaurantId) => ({
   type: GET_RESTAURANT_DETAILS_PENDING,
+  payload: restaurantId,
 });
 
 export const getRestaurantDetailsSuccess = (data) => ({

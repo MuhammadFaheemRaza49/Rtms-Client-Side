@@ -21,6 +21,8 @@ import {
   setSelectedDate,
   setSelectedTimeSlot,
   setGuestCount,
+  getBookingPolicy,
+  getAvailability,
 } from '../../redux/booking';
 
 export default function DateTimeSelectScreen() {
@@ -32,110 +34,102 @@ export default function DateTimeSelectScreen() {
   const { restaurantId } = route.params || {};
   const activeBranchId = restaurantId || '00000000-0000-7000-8000-000000000030';
 
-  const { selectedDate, selectedTimeSlot, guestCount } = useSelector((state) => state.booking);
+  const {
+    selectedDate,
+    selectedTimeSlot,
+    guestCount,
+    policyCache,
+    availabilityCache,
+    policyLoading,
+    availabilityLoading,
+  } = useSelector((state) => state.booking);
 
   // States
-  const [loading, setLoading] = useState(false);
-  const [policy, setPolicy] = useState(null);
-  const [availability, setAvailability] = useState([]);
   const [availableDates, setAvailableDates] = useState([]);
 
-  // Load policy and generate dates list on mount
+  const policy = policyCache && policyCache[activeBranchId];
+  const cacheKey = `${activeBranchId}_${selectedDate}_${guestCount}`;
+
+  // Map backend slots from Redux availabilityCache into UI-friendly format
+  const rawSlots = (availabilityCache && availabilityCache[cacheKey]) || [];
+  const pad = (n) => String(n).padStart(2, '0');
+  const availability = rawSlots.map((slot) => {
+    const start = new Date(slot.startsAt);
+    const end = new Date(slot.endsAt);
+    const startStr = `${pad(start.getHours())}:${pad(start.getMinutes())}`;
+    const endStr = `${pad(end.getHours())}:${pad(end.getMinutes())}`;
+    const hour = start.getHours();
+    let period = 'General';
+    if (hour < 12) period = 'Morning';
+    else if (hour < 17) period = 'Lunch';
+    else period = 'Dinner';
+    return {
+      time: `${startStr} - ${endStr}`,
+      startsAt: slot.startsAt,
+      endsAt: slot.endsAt,
+      isAvailable: true,
+      tableIds: slot.tableIds || [],
+      combinationIds: slot.combinationIds || [],
+      period,
+    };
+  });
+
+  const loading = policyLoading || availabilityLoading;
+
+  // Load policy on mount
   useEffect(() => {
     const fetchPolicy = async () => {
       try {
-        const policyResponse = await RestApi.get(`/portal/branches/${activeBranchId}/booking-policy`);
-        setPolicy(policyResponse);
+        const policyResponse = await dispatch(getBookingPolicy(activeBranchId));
         
         // Default guest count to policy minimum if needed
         if (policyResponse && guestCount < policyResponse.minPartySize) {
           dispatch(setGuestCount(policyResponse.minPartySize));
-        }
-
-        // Generate allowed date list starting from today up to advanceMaxDays
-        const maxDays = policyResponse?.advanceMaxDays || 30;
-        const datesList = [];
-        const today = new Date();
-        for (let i = 0; i < maxDays; i++) {
-          const d = new Date(today);
-          d.setDate(today.getDate() + i);
-          const yyyy = d.getFullYear();
-          const mm = String(d.getMonth() + 1).padStart(2, '0');
-          const dd = String(d.getDate()).padStart(2, '0');
-          const iso = `${yyyy}-${mm}-${dd}`;
-          
-          datesList.push({
-            iso,
-            dayName: d.toLocaleDateString('en-US', { weekday: 'short' }),
-            dayNum: d.getDate(),
-            monthName: d.toLocaleDateString('en-US', { month: 'short' }),
-          });
-        }
-        setAvailableDates(datesList);
-
-        if (!selectedDate && datesList.length > 0) {
-          dispatch(setSelectedDate(datesList[0].iso));
         }
       } catch (err) {
         console.warn('Failed to load booking policy:', err.message);
       }
     };
     fetchPolicy();
-  }, [activeBranchId]);
+  }, [dispatch, activeBranchId]);
+
+  // Generate allowed date list starting from today up to advanceMaxDays when policy changes
+  useEffect(() => {
+    if (!policy) return;
+    const maxDays = policy.advanceMaxDays || 30;
+    const datesList = [];
+    const today = new Date();
+    for (let i = 0; i < maxDays; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const iso = `${yyyy}-${mm}-${dd}`;
+      
+      datesList.push({
+        iso,
+        dayName: d.toLocaleDateString('en-US', { weekday: 'short' }),
+        dayNum: d.getDate(),
+        monthName: d.toLocaleDateString('en-US', { month: 'short' }),
+      });
+    }
+    setAvailableDates(datesList);
+
+    if (!selectedDate && datesList.length > 0) {
+      dispatch(setSelectedDate(datesList[0].iso));
+    }
+  }, [policy, selectedDate, dispatch]);
 
   // Fetch slots availability when date or guestCount changes
   useEffect(() => {
     if (!selectedDate) return;
     const fetchAvailability = async () => {
-      setLoading(true);
       try {
-        const res = await RestApi.get(`/portal/branches/${activeBranchId}/availability`, {
-          params: {
-            date: selectedDate,
-            partySize: guestCount,
-            duration: policy?.defaultDurationMin || 90,
-          },
-        });
-        
-        // Check for rejection (e.g. PARTY_SIZE_OUT_OF_RANGE)
-        if (res && res.rejected) {
-          console.warn('Availability rejected:', res.rejected);
-          setAvailability([]);
-          return;
-        }
-
-        // Map backend slots (AvailabilitySlotView[]) into UI-friendly format
-        if (res && Array.isArray(res.slots) && res.slots.length > 0) {
-          const pad = (n) => String(n).padStart(2, '0');
-          const mapped = res.slots.map((slot) => {
-            const start = new Date(slot.startsAt);
-            const end = new Date(slot.endsAt);
-            const startStr = `${pad(start.getHours())}:${pad(start.getMinutes())}`;
-            const endStr = `${pad(end.getHours())}:${pad(end.getMinutes())}`;
-            const hour = start.getHours();
-            let period = 'General';
-            if (hour < 12) period = 'Morning';
-            else if (hour < 17) period = 'Lunch';
-            else period = 'Dinner';
-            return {
-              time: `${startStr} - ${endStr}`,
-              startsAt: slot.startsAt,
-              endsAt: slot.endsAt,
-              isAvailable: true,
-              tableIds: slot.tableIds || [],
-              combinationIds: slot.combinationIds || [],
-              period,
-            };
-          });
-          setAvailability(mapped);
-        } else {
-          setAvailability([]);
-        }
+        const duration = policy?.defaultDurationMin || 90;
+        await dispatch(getAvailability(activeBranchId, selectedDate, guestCount, duration));
       } catch (err) {
         console.warn('Failed to fetch availability:', err.message);
-        setAvailability([]);
-      } finally {
-        setLoading(false);
       }
     };
     fetchAvailability();

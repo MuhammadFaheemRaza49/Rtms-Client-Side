@@ -6,12 +6,11 @@ let authToken = null;
 let isLoggingIn = false;
 
 const getBaseUrl = () => {
-  // Check if running in development mode
   if (__DEV__) {
-    // Both iOS simulator and Android (with adb reverse tcp:3000 tcp:3000) can use localhost
+    // adb reverse tcp:3000 tcp:3000 makes localhost work on physical devices via USB
     return 'http://localhost:3000/v1';
   }
-  return 'https://api.rtms.dev/v1'; // Production API URL placeholder
+  return 'https://api.rtms.dev/v1';
 };
 
 // Central axios instance configured with base URL
