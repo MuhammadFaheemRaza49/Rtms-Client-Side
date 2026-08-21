@@ -23,6 +23,8 @@ describe('restaurant Redux Duck', () => {
     nearby: [],
     featured: [],
     selectedRestaurant: null,
+    detailsCache: {},
+    available: [],
   };
 
   test('should return the initial state', () => {
@@ -82,6 +84,7 @@ describe('restaurant Redux Duck', () => {
       trending: [{ id: 't1', name: 'Trendy Pasta' }],
       nearby: [{ id: 'n1', name: 'Local Bistro' }],
       featured: [{ id: 'f1', name: 'Famous Grill' }],
+      available: [{ id: 'a1', name: 'Available Eats' }],
     };
     const nextState = restaurantReducer(
       initialState,
@@ -91,6 +94,7 @@ describe('restaurant Redux Duck', () => {
     expect(nextState.trending).toEqual(mockHomePayload.trending);
     expect(nextState.nearby).toEqual(mockHomePayload.nearby);
     expect(nextState.featured).toEqual(mockHomePayload.featured);
+    expect(nextState.available).toEqual(mockHomePayload.available);
   });
 
   test('should handle GET_HOME_LISTINGS_FAILURE', () => {

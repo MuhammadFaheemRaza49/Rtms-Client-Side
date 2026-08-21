@@ -121,35 +121,44 @@ function FloorPlanCanvasInner({
         current.initialScale = current.scale;
 
         if (touches.length >= 2) {
-          current.isPinching = true;
-          current.initialDistance = getDistance(touches);
+          const dist = getDistance(touches);
+          if (dist > 10) {
+            current.isPinching = true;
+            current.initialDistance = dist;
+          } else {
+            current.isPinching = false;
+            current.initialDistance = 0;
+          }
         } else {
           current.isPinching = false;
+          current.initialDistance = 0;
         }
       },
       onPanResponderMove: (evt, gestureState) => {
         const touches = evt.nativeEvent.touches;
         const current = stateRef.current;
 
-        if (touches.length === 2) {
-          // If we transitioned to 2 touches, or pinch state baseline is uninitialized/stale, recalculate
-          if (current.lastActiveTouches !== 2 || !current.isPinching || current.initialDistance === 0) {
-            current.isPinching = true;
+        if (touches.length >= 2) {
+          // If we transitioned to 2+ touches, or pinch state baseline is uninitialized/stale, recalculate
+          if (current.lastActiveTouches < 2 || !current.isPinching || current.initialDistance === 0) {
             const currentDistance = getDistance(touches);
-            current.initialDistance = currentDistance;
-            current.initialScale = current.scale;
-            current.initialTranslateX = current.translateX;
-            current.initialTranslateY = current.translateY;
+            if (currentDistance > 10) {
+              current.isPinching = true;
+              current.initialDistance = currentDistance;
+              current.initialScale = current.scale;
+              current.initialTranslateX = current.translateX;
+              current.initialTranslateY = current.translateY;
+            }
           } else {
             const currentDistance = getDistance(touches);
-            if (currentDistance > 0 && current.initialDistance > 0) {
+            if (currentDistance > 0 && current.initialDistance > 10) {
               // Clamp scale strictly between 1.0 and 5.0 (Same zoom-out limit as details screen)
               const minScale = 1.0;
               const maxScale = 5.0;
               const newScale = Math.max(minScale, Math.min(current.initialScale * (currentDistance / current.initialDistance), maxScale));
               
               scale.setValue(newScale);
-
+              current.scale = newScale; // Synchronously update tracking scale to prevent race condition/lag
             }
           }
         } else if (scrollable && !current.isPinching && touches.length === 1) {
@@ -158,6 +167,8 @@ function FloorPlanCanvasInner({
           const nextY = current.initialTranslateY + gestureState.dy;
           translateX.setValue(nextX);
           translateY.setValue(nextY);
+          current.translateX = nextX; // Synchronously update tracking values
+          current.translateY = nextY;
         }
 
         // Keep track of the active touches count for the next frame
@@ -184,11 +195,35 @@ function FloorPlanCanvasInner({
 
   // Smooth layout reset spring animation
   const resetLayout = () => {
+    // Reset stateRef synchronously to avoid inconsistencies during animation start
+    const current = stateRef.current;
+    current.scale = scrollable ? 1.3 : 1.0;
+    current.translateX = 0;
+    current.translateY = 0;
+    current.initialDistance = 0;
+    current.isPinching = false;
+    current.lastActiveTouches = 0;
+
     Animated.parallel([
       Animated.spring(scale, { toValue: scrollable ? 1.3 : 1.0, friction: 6, useNativeDriver: true }),
       Animated.spring(translateX, { toValue: 0, friction: 6, useNativeDriver: true }),
       Animated.spring(translateY, { toValue: 0, friction: 6, useNativeDriver: true }),
     ]).start();
+  };
+
+  const handleTouchStart = (e) => {
+    if (onTouchStart) {
+      onTouchStart(e);
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    // Only release parent scroll lock when all fingers have left the screen
+    if (e.nativeEvent.touches && e.nativeEvent.touches.length === 0) {
+      if (onTouchEnd) {
+        onTouchEnd(e);
+      }
+    }
   };
 
   const rawCanvasW = canvasMeta?.canvas?.width || canvasMeta?.grid?.width || 380;
@@ -373,7 +408,9 @@ function FloorPlanCanvasInner({
     <View 
       style={scrollable ? { flex: 1, width: '100%', height: '100%' } : styles.canvasContainer} 
       onLayout={onContainerLayout}
-      onTouchStart={onTouchStart}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
     >
       {containerSize.width > 0 && (
         <View 

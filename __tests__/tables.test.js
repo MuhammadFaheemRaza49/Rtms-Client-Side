@@ -27,6 +27,7 @@ describe('tables Redux Duck', () => {
       highChairCount: 0,
       wheelchair: false,
     },
+    tablesCache: {},
   };
 
   test('should return the initial state', () => {

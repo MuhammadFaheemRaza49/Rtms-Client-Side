@@ -22,6 +22,7 @@ const initialState = {
   featured: [],
   selectedRestaurant: null,
   detailsCache: {},
+  available: [],
 };
 
 const restaurantReducer = (state = initialState, action) => {
@@ -72,6 +73,7 @@ const restaurantReducer = (state = initialState, action) => {
         trending: action.payload?.trending || [],
         nearby: action.payload?.nearby || [],
         featured: action.payload?.featured || [],
+        available: action.payload?.available || [],
       };
 
     case GET_RESTAURANT_DETAILS_SUCCESS: {

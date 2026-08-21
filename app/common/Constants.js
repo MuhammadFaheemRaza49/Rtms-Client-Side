@@ -31,6 +31,39 @@ const Constants = {
     title: 17,
     header: 20,
   },
+
+  sizes: {
+    base: 14,
+    h1: 30,
+    h2: 24,
+    h3: 20,
+    h4: 16,
+    h5: 14,
+    h6: 12,
+    h7: 11,
+    h8: 10,
+  },
+
+  fontFamilyRegular: 'Inter-Light',
+  fontFamilyMedium: 'Inter-Medium',
+  fontFamilyBold: 'Inter-SemiBold',
+  fontFamilyRegularArabic: 'Inter-Light',
+  fontFamilyMediumArabic: 'Inter-Medium',
+  fontFamilyBoldArabic: 'Inter-SemiBold',
+  fontFamilyMediumItalic: 'Inter-Medium',
+  fontFamilyRegularItalic: 'Inter-Light',
+
+  Layout: {
+    card: 1,
+    twoColumn: 2,
+    simple: 3,
+    list: 4,
+    advance: 5,
+    threeColumn: 6,
+    horizon: 7,
+    twoColumnHigh: 8,
+    miniBanner: 9,
+  },
 };
 
 export default Constants;

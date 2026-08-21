@@ -79,6 +79,7 @@ export const getHomeListings = () => {
         trending: allBranches.slice(0, 2),
         nearby: allBranches.slice(2, 6),
         featured: allBranches.slice(6),
+        available: allBranches,
       };
       
       dispatch(getHomeListingsSuccess(responseData));

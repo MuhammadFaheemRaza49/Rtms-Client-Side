@@ -18,6 +18,10 @@ describe('booking Redux Duck', () => {
     specialRequests: '',
     loading: false,
     error: null,
+    availabilityCache: {},
+    availabilityLoading: false,
+    policyCache: {},
+    policyLoading: false,
   };
 
   test('should return the initial state', () => {

@@ -17,6 +17,11 @@ export const selectFeatured = createSelector(
   (restaurant) => restaurant.featured || []
 );
 
+export const selectAvailable = createSelector(
+  [selectRestaurantState],
+  (restaurant) => restaurant.available || []
+);
+
 export const selectSearchResults = createSelector(
   [selectRestaurantState],
   (restaurant) => restaurant.searchResults || []

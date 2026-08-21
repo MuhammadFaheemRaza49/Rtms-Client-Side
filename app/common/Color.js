@@ -27,4 +27,10 @@ const Color = {
   transparent: 'transparent',
 };
 
+export const lightTheme = {
+  colors: {
+    ...Color,
+  },
+};
+
 export default Color;

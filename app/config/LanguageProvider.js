@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext } from 'react';
+import Color from '../common/Color';
 
 const translations = {
   en: {
@@ -15,10 +16,14 @@ const translations = {
     loading: 'Loading...',
     retry: 'Retry',
     error_loading: 'Failed to load restaurant list.',
+    'cargo:confirm': 'Confirm',
+    'inBus:selectDepDate': 'Please select a date',
+    'airline:flexibleDates': 'Flexible dates',
   },
 };
 
 const LanguageContext = createContext();
+export const Context = LanguageContext;
 
 export const LanguageProvider = ({ children }) => {
   const [language, setLanguage] = useState('en');
@@ -27,8 +32,31 @@ export const LanguageProvider = ({ children }) => {
     return translations[language]?.[key] || key;
   };
 
+  const colors = {
+    ...Color,
+    bgColorWhite: Color.white,
+    bgSecondaryColor: Color.background,
+    fieldBackground: Color.inputBackground,
+    placeholderColor: Color.textMuted,
+    headingText: Color.textPrimary,
+    overlay: 'rgba(0, 0, 0, 0.5)',
+    layer_color: Color.border,
+    verticalBgColor: Color.background,
+    textPrimary: Color.textPrimary,
+    primaryBg: Color.headerBlue,
+    fieldOpacity: 'rgba(255, 255, 255, 0.15)',
+    fieldTextColor: Color.white,
+  };
+
+  const value = {
+    language,
+    setLanguage,
+    t,
+    themeColor: { colors },
+  };
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={{ ...value, value }}>
       {children}
     </LanguageContext.Provider>
   );
