@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   View,
   Switch,
+  Animated,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -264,6 +266,14 @@ const RestaurantDetailsScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const dispatch = useDispatch();
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [isImageModalVisible, setImageModalVisible] = useState(false);
+
+  const headerBackgroundColor = scrollY.interpolate({
+    inputRange: [0, 150],
+    outputRange: ['rgba(21, 82, 179, 0.25)', Color.headerBlue],
+    extrapolate: 'clamp',
+  });
 
   const { restaurantId } = route.params || {};
 
@@ -349,8 +359,8 @@ const RestaurantDetailsScreen = () => {
 
   return (
     <View style={styles.container}>
-      {/* Absolute Overlay Header with transparent gradient style matching Figma */}
-      <View style={[styles.headerOverlay, { paddingTop: insets.top }]}>
+      {/* Absolute Overlay Header with smooth animated color transition */}
+      <Animated.View style={[styles.headerOverlay, { paddingTop: insets.top, height: 56 + insets.top, backgroundColor: headerBackgroundColor }]}>
         <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.goBack()}>
           <Text style={styles.headerBackArrow}>‹</Text>
         </TouchableOpacity>
@@ -358,15 +368,24 @@ const RestaurantDetailsScreen = () => {
         <TouchableOpacity style={styles.headerBtn}>
           <ShareIcon color="#FFF" size={20} />
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
-      <ScrollView 
+      <Animated.ScrollView 
         scrollEnabled={parentScrollEnabled}
         showsVerticalScrollIndicator={false} 
         contentContainerStyle={styles.scrollContent}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
       >
         {/* 1. Hero Image Header Block */}
-        <View style={styles.heroContainer}>
+        <TouchableOpacity 
+          activeOpacity={0.9} 
+          onPress={() => setImageModalVisible(true)}
+          style={styles.heroContainer}
+        >
           <Image
             source={{ uri: Images.placeholders.restaurant }}
             style={styles.heroImage}
@@ -377,7 +396,7 @@ const RestaurantDetailsScreen = () => {
             <LandscapeIcon color="#FFF" size={14} />
             <Text style={styles.photoCountText}>12</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* 2. Restaurant Profile Info Card */}
         <View style={styles.infoCard}>
@@ -896,7 +915,29 @@ const RestaurantDetailsScreen = () => {
             <Text style={styles.policyBullet}>• Not Available</Text>
           )}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
+
+      {/* Full-Screen Image Viewer Modal */}
+      <Modal
+        visible={isImageModalVisible}
+        transparent={true}
+        onRequestClose={() => setImageModalVisible(false)}
+        animationType="fade"
+      >
+        <View style={styles.fullScreenContainer}>
+          <TouchableOpacity 
+            style={styles.closeFullBtn} 
+            onPress={() => setImageModalVisible(false)}
+          >
+            <Text style={styles.closeFullText}>✕</Text>
+          </TouchableOpacity>
+          <Image
+            source={{ uri: Images.placeholders.restaurant }}
+            style={styles.fullScreenImage}
+            resizeMode="contain"
+          />
+        </View>
+      </Modal>
 
       {/* Sticky Bottom Bar */}
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
@@ -930,8 +971,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Constants.spacing.large,
-    backgroundColor: 'rgba(21, 82, 179, 0.25)', // Subtle blue shadow overlay
-    height: 60,
   },
   headerBtn: {
     width: 36,
@@ -943,6 +982,7 @@ const styles = StyleSheet.create({
     color: Color.white,
     fontSize: 32,
     fontWeight: 'bold',
+    marginTop: -6,
   },
   headerTitle: {
     color: Color.white,
@@ -951,6 +991,33 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 40,
+  },
+  fullScreenContainer: {
+    flex: 1,
+    backgroundColor: Color.black,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: '100%',
+    height: '100%',
+  },
+  closeFullBtn: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeFullText: {
+    color: Color.white,
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   heroContainer: {
     width: '100%',
