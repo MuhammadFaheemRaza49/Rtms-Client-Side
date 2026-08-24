@@ -37,14 +37,14 @@ export const LanguageProvider = ({ children }) => {
     bgColorWhite: Color.white,
     bgSecondaryColor: Color.background,
     fieldBackground: Color.inputBackground,
-    placeholderColor: Color.textMuted,
+    placeholderColor: Color.placeholderColor ?? Color.textMuted,
     headingText: Color.textPrimary,
     overlay: 'rgba(0, 0, 0, 0.5)',
-    layer_color: Color.border,
+    layer_color: Color.layer_color ?? Color.border,
     verticalBgColor: Color.background,
     textPrimary: Color.textPrimary,
     primaryBg: Color.headerBlue,
-    fieldOpacity: 'rgba(255, 255, 255, 0.15)',
+    fieldOpacity: Color.fieldOpacity ?? 'rgba(255, 255, 255, 0.15)',
     fieldTextColor: Color.white,
   };
 

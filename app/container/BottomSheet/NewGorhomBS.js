@@ -8,7 +8,7 @@ import React, {
     useState,
 } from 'react';
 
-import {BackHandler, Keyboard, Platform, StyleSheet, View} from 'react-native';
+import { BackHandler, Keyboard, Platform, StyleSheet, View } from 'react-native';
 
 import GorhomBottomSheet, {
     BottomSheetFlatList,
@@ -19,47 +19,47 @@ import GorhomBottomSheet, {
 } from '@gorhom/bottom-sheet';
 
 import Block from '../components/Block';
-import {Context} from '../../config/LanguageProvider';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {KeyboardEvents} from 'react-native-keyboard-controller';
+import { Context } from '../../config/LanguageProvider';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardEvents } from 'react-native-keyboard-controller';
 
 const NewGorhomBS = ({
-                         onOpen,
-                         onScroll,
-                         keyboardShouldPersistTaps,
-                         onMomentumScrollEnd,
+    onOpen,
+    onScroll,
+    keyboardShouldPersistTaps,
+    onMomentumScrollEnd,
 
-                         modalHeight = undefined,
+    modalHeight = undefined,
 
-                         withOverlay = true,
-                         overlayStyle = undefined,
-                         modalStyle = undefined,
-                         rootStyle = undefined,
-                         closeOnOverlayTap = true,
+    withOverlay = true,
+    overlayStyle = undefined,
+    modalStyle = undefined,
+    rootStyle = undefined,
+    closeOnOverlayTap = true,
 
-                         flatListProps = undefined,
-                         android_keyboardInputMode = "adjustResize",
-                         alwaysOpen = false,
-                         isBottomSafeArea = false,
-                         refRBSheet,
-                         snapPoint = 0,
+    flatListProps = undefined,
+    android_keyboardInputMode = "adjustResize",
+    alwaysOpen = false,
+    isBottomSafeArea = false,
+    refRBSheet,
+    snapPoint = 0,
 
-                         children,
-                         adjustHeight = true,
-                         disableScroll = true,
+    children,
+    adjustHeight = true,
+    disableScroll = true,
 
-                         footer = undefined,
-                         header = undefined,
+    footer = undefined,
+    header = undefined,
 
-                         onClosed = () => {
-                         },
+    onClosed = () => {
+    },
 
-                         panGestureEnabled = true,
-                         hasTextInput = false,
-                     }) => {
+    panGestureEnabled = true,
+    hasTextInput = false,
+}) => {
     const {
         value: {
-            themeColor: {colors},
+            themeColor: { colors },
         },
     } = useContext(Context);
 
@@ -304,7 +304,7 @@ const NewGorhomBS = ({
                         // any screen overlay with its own zIndex would wedge
                         // between backdrop and sheet and swallow the
                         // tap-outside-to-close.
-                        {backgroundColor: colors.overlay, zIndex: 9999999},
+                        { backgroundColor: colors.overlay, zIndex: 9999999 },
                         overlayStyle,
                     ]}
                     pressBehavior={
@@ -331,7 +331,7 @@ const NewGorhomBS = ({
                     borderTopLeftRadius: 15,
                     borderTopRightRadius: 15,
                 }}>
-                <View style={styles.handler}/>
+                <View style={styles.handler} />
             </Block>
         );
     }, []);
@@ -387,7 +387,7 @@ const NewGorhomBS = ({
                     {...flatListProps}
                     style={[styles.flatList, flatListProps?.style]}
                     contentContainerStyle={[
-                        {paddingBottom},
+                        { paddingBottom },
                         flatListProps?.contentContainerStyle,
                         keyboardHeight > 0 && {
                             paddingBottom: contentPaddingBottom,
@@ -437,7 +437,7 @@ const NewGorhomBS = ({
                 keyboardShouldPersistTaps={keyboardShouldPersistTaps ?? 'handled'}
                 nestedScrollEnabled
                 style={styles.scrollView}
-                contentContainerStyle={{paddingBottom: contentPaddingBottom}}>
+                contentContainerStyle={{ paddingBottom: contentPaddingBottom }}>
                 <Block
                     isForground={true}
                     onLayout={handleContentLayout}
@@ -475,7 +475,7 @@ const NewGorhomBS = ({
             // sibling with an explicit zIndex (e.g. HotelSearchSelection's
             // edit-mode backdrop) stacks above the sheet and steals its
             // touches.
-            containerStyle={{zIndex: 9999999}}
+            containerStyle={{ zIndex: 9999999 }}
             onChange={index => {
                 const openThreshold = alwaysOpen ? 1 : 0;
                 const wasOpen = prevIndexRef.current >= openThreshold;

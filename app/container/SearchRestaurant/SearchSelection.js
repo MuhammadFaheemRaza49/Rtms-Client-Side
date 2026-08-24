@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   ActivityIndicator,
@@ -6,11 +6,13 @@ import {
   Easing,
   FlatList,
   Image,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TextElement from '../components/text/Text';
 import { Color } from '../../common';
 import { useDispatch, useSelector } from 'react-redux';
@@ -31,7 +33,69 @@ import SelectionButton from './shared/HotelRevamp/components/SelectionButton';
 import SearchCityField2 from './shared/HotelRevamp/components/SearchCityField2';
 import homeStyle from './shared/HomeContainer/homeStyle';
 import CalenderComponent from './components/CalenderComponent';
-import { Calendar, Minus, Plus, Search, Users } from 'lucide-react-native';
+import { Calendar, MapPin, Minus, Plus, Search, Users, Utensils } from 'lucide-react-native';
+
+const SUGGESTED_RESULTS_LIMIT = 5;
+
+const FilterIcon = ({ color = Color.textPrimary, size = 18 }) => (
+  <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+    <View style={{ width: 14, height: 1.5, backgroundColor: color, marginBottom: 3 }} />
+    <View style={{ width: 10, height: 1.5, backgroundColor: color, marginBottom: 3 }} />
+    <View style={{ width: 6, height: 1.5, backgroundColor: color }} />
+  </View>
+);
+
+const HorizontalCard = React.memo(({ item, index, onPress }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(15)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 250,
+        delay: Math.min(index * 60, 400),
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 250,
+        delay: Math.min(index * 60, 400),
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [index]);
+
+  return (
+    <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+      <TouchableOpacity
+        style={styles.horizontalCard}
+        activeOpacity={0.85}
+        onPress={onPress}>
+        <Image
+          source={{ uri: item.imageUrl }}
+          style={styles.horizontalCardImage}
+          resizeMode="cover"
+        />
+        <View style={styles.horizontalCardInfo}>
+          <Text style={styles.horizontalCardName} numberOfLines={2}>
+            {item.name}
+          </Text>
+          <Text style={styles.horizontalCardLocation} numberOfLines={1}>
+            {item.location}
+          </Text>
+          <View style={styles.priceRow}>
+            <Text style={styles.horizontalCardPriceLabel}>Starting From</Text>
+            <Text style={styles.horizontalCardPrice}>
+              {item.startingPrice ? `SAR ${item.startingPrice}` : 'SAR 300'}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+});
 
 const SearchSelection = ({
   style,
@@ -46,6 +110,8 @@ const SearchSelection = ({
     value: { t, themeColor: { colors } },
   } = useContext(Context);
   const modalizeRef = useRef();
+  const guestsBottomSheetRef = useRef();
+  const insets = useSafeAreaInsets();
 
   const dispatch = useDispatch();
   const navigation = useNavigation();
@@ -55,6 +121,10 @@ const SearchSelection = ({
   const nearby = useSelector(state => state.restaurant.nearby);
   const available = useSelector(state => state.restaurant.available);
   const loading = useSelector(state => state.restaurant.loading);
+  const recommendations = useMemo(
+    () => [...(trending ?? []), ...(nearby ?? [])],
+    [trending, nearby]
+  );
 
   const [query, setValue] = useState('');
   const [selectedDate, setSelectedDate] = useState(
@@ -64,6 +134,7 @@ const SearchSelection = ({
   const [isGuestsOpen, setGuestsOpen] = useState(false);
   const [isOpenList, setList] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
+  const [isAnimFinished, setIsAnimFinished] = useState(false);
 
   const translateAnim = useRef(new Animated.Value(0)).current;
   const animContentFade = useRef(new Animated.Value(1)).current;
@@ -98,13 +169,17 @@ const SearchSelection = ({
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (isOpenList) {
-        animateToCloseRestaurantList();
+        if (query && query.length > 0) {
+          setValue('');
+        } else {
+          animateToCloseRestaurantList();
+        }
         return true;
       }
       return false;
     });
     return () => sub.remove();
-  }, [isOpenList]);
+  }, [isOpenList, query]);
 
   const calculateToValue = (
     expandedHeightRef,
@@ -119,6 +194,7 @@ const SearchSelection = ({
   };
 
   const animateToOpenRestaurantList = () => {
+    setIsAnimFinished(false);
     Animated.parallel([
       Animated.timing(translateAnim, {
         toValue: calculateToValue(expandedHeight, editFieldHeight),
@@ -136,10 +212,13 @@ const SearchSelection = ({
         duration: animDuration,
         useNativeDriver: true,
       }),
-    ]).start();
+    ]).start(() => {
+      setIsAnimFinished(true);
+    });
   };
 
   const animateToCloseRestaurantList = () => {
+    setIsAnimFinished(false);
     Animated.parallel([
       Animated.timing(translateAnim, {
         toValue: 0,
@@ -177,17 +256,33 @@ const SearchSelection = ({
     [isSearching, query, searchResults, available, trending, nearby],
   );
 
-  const handleSelectRestaurant = item => {
+  const defaultAvailableList = useMemo(
+    () => {
+      if (available && available.length > 0) {
+        return available;
+      }
+      return [...(trending ?? []), ...(nearby ?? [])];
+    },
+    [available, trending, nearby],
+  );
+
+  // Suggested Results (non-search state) is capped to a fixed number of rows.
+  const suggestedList = useMemo(
+    () => displayList.slice(0, SUGGESTED_RESULTS_LIMIT),
+    [displayList],
+  );
+
+  const handleSelectRestaurant = useCallback(item => {
     if (onSearch) {
       if (fadeAnimBottom) fadeAnimBottom.setValue(0.5);
       onSearch(item);
       animateToCloseRestaurantList();
       return;
     }
+    setValue(item.name);
     dispatch(setSearchQuery(item.name));
-    dispatch(searchRestaurants(item.name, selectedDate, guestCount));
-    navigation.navigate(NavigationPath.SearchResults, {query: item.name});
-  };
+    navigation.navigate(NavigationPath.SearchResults, { query: item.name });
+  }, [onSearch, fadeAnimBottom, dispatch, navigation]);
 
   const incrementGuests = () =>
     setGuestCount(count => Math.min(10, count + 1));
@@ -202,13 +297,13 @@ const SearchSelection = ({
     });
   };
 
-  const renderRestaurantCard = ({ item }) => (
+  const renderRestaurantCard = useCallback(({ item }) => (
     <TouchableOpacity
       style={styles.card}
       activeOpacity={0.85}
       onPress={() => handleCardPress(item)}>
       <Image
-        source={{uri: item.imageUrl}}
+        source={{ uri: item.imageUrl }}
         style={styles.cardImage}
         resizeMode="cover"
       />
@@ -228,34 +323,79 @@ const SearchSelection = ({
         ) : null}
       </View>
     </TouchableOpacity>
-  );
+  ), [handleCardPress]);
 
-  const renderRestaurantItem = ({ item }) => (
+  const renderSuggestedItem = useCallback(({ item }) => (
     <TouchableOpacity
-      style={styles.restaurantItem}
+      style={styles.suggestedItem}
       onPress={() => handleSelectRestaurant(item)}>
-      <Image
-        source={{ uri: item.imageUrl }}
-        style={styles.restaurantImage}
-        resizeMode="cover"
-      />
-      <View style={styles.restaurantInfo}>
-        <Text style={styles.restaurantName}>{item.name}</Text>
-        <Text style={styles.restaurantLocation}>{item.location}</Text>
-        <View style={homeStyle.rowHorizantalCenter}>
-          <Text style={styles.starText}>★ ★ ★ ★ ★</Text>
-          <Text style={styles.reviewCount}>({item.reviewCount || '1,123'})</Text>
-        </View>
+      <View style={styles.suggestedIconCircle}>
+        <Utensils size={16} strokeWidth={2} color={Color.headerBlue} />
       </View>
+      <Text style={styles.suggestedName} numberOfLines={1}>
+        {item.name}
+      </Text>
     </TouchableOpacity>
-  );
+  ), [handleSelectRestaurant]);
+
+  const renderHorizontalCard = useCallback(({ item, index }) => (
+    <HorizontalCard item={item} index={index} onPress={() => handleCardPress(item)} />
+  ), [handleCardPress]);
+
+  const handleNearbyPress = useCallback(() => {
+    // hook up your existing "use current location" action here
+  }, []);
+
+  const suggestedListHeader = useMemo(() => (
+    <>
+      <Text style={styles.sectionHeader}>Current Location</Text>
+      <TouchableOpacity
+        style={styles.nearbyRow}
+        onPress={handleNearbyPress}>
+        <View style={styles.nearbyIconCircle}>
+          <MapPin size={16} strokeWidth={2} color={Color.headerBlue} />
+        </View>
+        <View>
+          <Text style={styles.nearbyTitle}>Nearby</Text>
+          <Text style={styles.nearbySubtitle}>Use my Current Location</Text>
+        </View>
+      </TouchableOpacity>
+      <Text style={styles.sectionHeader}>Suggested Results</Text>
+    </>
+  ), [handleNearbyPress]);
+
+  const listHeader = useMemo(() => (
+    <Text style={styles.sectionHeader}>
+      {isSearching ? 'Search Results' : 'Trending Searches'}
+    </Text>
+  ), [isSearching]);
+
+  const suggestedListEmpty = useMemo(() => (
+    loading ? (
+      <View style={styles.emptyList}>
+        <ActivityIndicator size="small" color={Color.headerBlue} />
+      </View>
+    ) : null
+  ), [loading]);
+
+  const searchListEmpty = useMemo(() => (
+    loading ? (
+      <View style={styles.emptyList}>
+        <ActivityIndicator size="small" color={Color.headerBlue} />
+      </View>
+    ) : (
+      <View style={styles.emptyList}>
+        <Text style={styles.emptyText}>No Restaurants Found</Text>
+      </View>
+    )
+  ), [loading]);
 
   const animatedStyle1 = {
     transform: [{ translateY: translateFirstField }],
   };
 
   return (
-    <View style={style}>
+    <View style={[{ flex: 1, backgroundColor: isOpenList ? Color.white : 'transparent' }, style]}>
       <View
         onLayout={event => {
           const { height } = event.nativeEvent.layout;
@@ -294,6 +434,7 @@ const SearchSelection = ({
                     placeholder={t('search_placeholder')}
                     onPress={() => setList(true)}
                     title={query || undefined}
+                    textStyle={{ color: Color.white }}
                   />
                 </Animated.View>
 
@@ -308,26 +449,9 @@ const SearchSelection = ({
               <SelectionButton
                 icon={<Users size={20} strokeWidth={2} color={Color.white} />}
                 placeholder={'Guests'}
-                onPress={() => setGuestsOpen(open => !open)}
+                onPress={() => guestsBottomSheetRef.current?.open()}
                 title={`${guestCount} ${guestCount === 1 ? 'Guest' : 'Guests'}`}
               />
-              {isGuestsOpen && (
-                <View style={styles.guestsStepper}>
-                  <TouchableOpacity
-                    style={styles.stepperButton}
-                    onPress={decrementGuests}>
-                    <Minus size={18} strokeWidth={2.5} color={Color.white} />
-                  </TouchableOpacity>
-                  <TextElement h4 h4Style={{color: Color.white}}>
-                    {guestCount} {guestCount === 1 ? 'Guest' : 'Guests'}
-                  </TextElement>
-                  <TouchableOpacity
-                    style={styles.stepperButton}
-                    onPress={incrementGuests}>
-                    <Plus size={18} strokeWidth={2.5} color={Color.white} />
-                  </TouchableOpacity>
-                </View>
-              )}
             </View>
           </Animated.View>
           {isOpenList && (
@@ -343,18 +467,28 @@ const SearchSelection = ({
               }}>
               <SearchCityField2
                 isFrom={true}
-                icon={<Search size={18} strokeWidth={2} color={Color.white} style={{marginStart: 10}} />}
-                placeholder={'Search Restaurant'}
+                icon={<Search size={18} strokeWidth={2} color={Color.white} style={{ marginStart: 10 }} />}
+                placeholder={'Search Restaurants'}
                 onChange={text => {
                   setValue(text);
                 }}
                 value={query}
+                placeholderTextColor={Color.white}
                 onClear={() => {
                   setValue('');
                 }}
                 onBack={() => {
-                  setValue('');
-                  animateToCloseRestaurantList();
+                  if (query && query.length > 0) {
+                    setValue('');
+                  } else {
+                    animateToCloseRestaurantList();
+                  }
+                }}
+                onSubmitEditing={() => {
+                  if (query && query.trim().length >= 2) {
+                    dispatch(setSearchQuery(query));
+                    navigation.navigate(NavigationPath.SearchResults, { query: query });
+                  }
                 }}
               />
             </Animated.View>
@@ -365,25 +499,29 @@ const SearchSelection = ({
         <Animated.View
           style={{
             flex: 1,
-            transform: [{translateY: translateAnim}],
+            transform: [{ translateY: translateAnim }],
             opacity: animContentFade,
           }}>
-          <TextElement
-            h4
-            medium
-            h4Style={{
-              paddingHorizontal: 14,
-              marginTop: 14,
-              marginBottom: 10,
-              color: Color.textPrimary,
-            }}>
-            Available Restaurants
-          </TextElement>
           <FlatList
-            data={displayList}
+            data={defaultAvailableList}
             renderItem={renderRestaurantCard}
             keyExtractor={(item, index) =>
               item?.id?.toString() ?? index.toString()
+            }
+            ListHeaderComponent={
+              <TextElement
+                h4
+                medium
+                h4Style={{
+                  paddingHorizontal: 6,
+                  marginTop: 18,
+                  marginBottom: 10,
+                  color: Color.slate800,
+                  fontSize: 16,
+                  fontFamily: Constants.fontFamilyMedium,
+                }}>
+                Available Restaurants
+              </TextElement>
             }
             numColumns={2}
             columnWrapperStyle={styles.cardColumn}
@@ -415,63 +553,39 @@ const SearchSelection = ({
         <SearchCityField2
           editable={false}
           isFrom={false}
-          placeholder={'Search Restaurant'}
+          placeholder={'Search Restaurants'}
         />
       </View>
       {isOpenList ? (
         <Animated.View
           style={{
+            flex: 1,
             position: 'absolute',
             left: 0,
             right: 0,
-            bottom: 0,
+            bottom: -250,
             top: headerHeight,
-            backgroundColor: Color.background,
+            backgroundColor: Color.white,
             transform: [{ translateY: translateAnim }],
             opacity: animEditCityOp,
           }}>
-          {isSearching ? (
-            <>
-              <TextElement h4 medium h4Style={{paddingHorizontal: 14, marginBottom: 10, color: Color.textPrimary}}>
-                {`${displayList.length} ${displayList.length === 1 ? 'Restaurant' : 'Restaurants'} Found`}
-              </TextElement>
-              <FlatList
-                data={displayList}
-                renderItem={renderRestaurantItem}
-                keyExtractor={(item, index) =>
-                  item?.id?.toString() ?? index.toString()
-                }
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={styles.listContent}
-                initialNumToRender={6}
-                maxToRenderPerBatch={6}
-                windowSize={5}
-                removeClippedSubviews
-                ListEmptyComponent={
-                  loading ? (
-                    <View style={styles.emptyList}>
-                      <ActivityIndicator size="small" color={Color.headerBlue} />
-                    </View>
-                  ) : (
-                    <View style={styles.emptyList}>
-                      <Text style={styles.emptyText}>No Restaurants Found</Text>
-                    </View>
-                  )
-                }
-              />
-            </>
-          ) : (
-            <View style={styles.searchHereWrap}>
-              <View style={styles.searchHereIconCircle}>
-                <Search size={26} strokeWidth={2.2} color={Color.headerBlue} />
-              </View>
-              <Text style={styles.searchHereTitle}>Search here</Text>
-              <Text style={styles.searchHereSubtitle}>
-                Start typing to discover your favourite restaurant
-              </Text>
-            </View>
-          )}
+          <FlatList
+            style={{ flex: 1, backgroundColor: Color.white }}
+            data={isAnimFinished ? (isSearching ? searchResults : displayList) : []}
+            renderItem={renderHorizontalCard}
+            keyExtractor={(item, index) =>
+              item?.id?.toString() ?? index.toString()
+            }
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={[styles.listContent, { flexGrow: 1, paddingBottom: insets.bottom + 270 }]}
+            initialNumToRender={4}
+            maxToRenderPerBatch={4}
+            windowSize={3}
+            removeClippedSubviews={true}
+            ListHeaderComponent={listHeader}
+            ListEmptyComponent={isSearching ? searchListEmpty : suggestedListEmpty}
+          />
         </Animated.View>
       ) : isChange ? (
         <View style={{ height: '100%', zIndex: 10000 }}>
@@ -490,7 +604,7 @@ const SearchSelection = ({
 
       <BottomSheet isBottomSafeArea={true} refRBSheet={modalizeRef}>
         <CalenderComponent
-          isBus={true}
+          isBus={false}
           oneWay={1}
           departureDate={selectedDate}
           selectedDate={depDate => {
@@ -498,6 +612,33 @@ const SearchSelection = ({
             modalizeRef.current?.close();
           }}
         />
+      </BottomSheet>
+
+      <BottomSheet isBottomSafeArea={false} refRBSheet={guestsBottomSheetRef}>
+        <View style={styles.sheetContainer}>
+          <Text style={styles.sheetTitle}>Select No. of Guests</Text>
+          <View style={styles.sheetRow}>
+            <Text style={styles.sheetLabel}>Guests</Text>
+            <View style={styles.sheetStepper}>
+              <TouchableOpacity
+                style={styles.sheetStepperBtn}
+                onPress={decrementGuests}>
+                <Minus size={16} strokeWidth={2.5} color={Color.greyText} />
+              </TouchableOpacity>
+              <Text style={styles.sheetStepperVal}>{guestCount}</Text>
+              <TouchableOpacity
+                style={styles.sheetStepperBtn}
+                onPress={incrementGuests}>
+                <Plus size={16} strokeWidth={2.5} color={Color.greyText} />
+              </TouchableOpacity>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.sheetNextBtn}
+            onPress={() => guestsBottomSheetRef.current?.close()}>
+            <Text style={styles.sheetNextBtnText}>Next</Text>
+          </TouchableOpacity>
+        </View>
       </BottomSheet>
     </View>
   );
@@ -560,12 +701,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: Color.border,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
+    borderColor: Color.borderGrey,
   },
   cardImage: {
     width: '100%',
@@ -615,7 +751,7 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 38,
-    backgroundColor: '#E8F0FE',
+    backgroundColor: Color.lightBlue100,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -670,5 +806,223 @@ const styles = StyleSheet.create({
     fontFamily: Constants.fontFamilyRegular,
     color: Color.textMuted,
     marginLeft: 4,
+  },
+  sectionHeader: {
+    fontSize: 16,
+    fontFamily: Constants.fontFamilyBold,
+    color: Color.slate800,
+    fontWeight: '700',
+    backgroundColor: Color.white,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 10,
+  },
+  nearbyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: Color.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Color.border,
+  },
+  nearbyIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Color.lightBlue100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  nearbyTitle: {
+    fontSize: 14,
+    fontFamily: Constants.fontFamilyMedium,
+    color: Color.textPrimary,
+  },
+  nearbySubtitle: {
+    fontSize: 11,
+    fontFamily: Constants.fontFamilyRegular,
+    color: Color.textSecondary,
+    marginTop: 2,
+  },
+  suggestedItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: Color.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Color.border,
+  },
+  suggestedIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Color.lightBlue100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  suggestedName: {
+    fontSize: 14,
+    fontFamily: Constants.fontFamilyMedium,
+    color: Color.textPrimary,
+    flex: 1,
+  },
+  summaryBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  foundTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  summaryText: {
+    fontSize: 14,
+    fontFamily: Constants.fontFamilyMedium,
+    color: Color.textPrimary,
+  },
+  spinner: {
+    marginLeft: 8,
+  },
+  filterButton: {
+    width: 36,
+    height: 36,
+    backgroundColor: Color.white,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Color.border,
+  },
+  section: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontFamily: Constants.fontFamilyMedium,
+    color: Color.textPrimary,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+  },
+  horizontalCard: {
+    flexDirection: 'row',
+    backgroundColor: Color.white,
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Color.borderGrey,
+    alignItems: 'center',
+  },
+  horizontalCardImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+  },
+  horizontalCardInfo: {
+    flex: 1,
+    marginLeft: 14,
+  },
+  horizontalCardName: {
+    fontSize: 15,
+    fontFamily: Constants.fontFamilyMedium,
+    color: Color.slate800,
+    fontWeight: '600',
+    lineHeight: 20,
+    marginBottom: 3,
+  },
+  horizontalCardLocation: {
+    fontSize: 12,
+    fontFamily: Constants.fontFamilyRegular,
+    color: Color.greyText,
+    marginBottom: 6,
+  },
+  priceRow: {
+    marginTop: 2,
+  },
+  horizontalCardPriceLabel: {
+    fontSize: 11,
+    fontFamily: Constants.fontFamilyRegular,
+    color: Color.greyText,
+  },
+  horizontalCardPrice: {
+    fontSize: 14,
+    fontFamily: Constants.fontFamilyMedium,
+    color: Color.slate800,
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  sheetContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
+    backgroundColor: Color.white,
+  },
+  sheetTitle: {
+    fontSize: 17,
+    fontFamily: Constants.fontFamilyBold,
+    fontWeight: '700',
+    color: Color.slate800,
+    marginBottom: 16,
+  },
+  sheetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  sheetLabel: {
+    fontSize: 15,
+    fontFamily: Constants.fontFamilyMedium,
+    color: Color.borderColor3,
+    fontWeight: '500',
+  },
+  sheetStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sheetStepperBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Color.borderGrey,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Color.gray50,
+  },
+  sheetStepperVal: {
+    fontSize: 16,
+    fontFamily: Constants.fontFamilyMedium,
+    fontWeight: '600',
+    color: Color.slate800,
+    marginHorizontal: 16,
+  },
+  sheetNextBtn: {
+    width: '100%',
+    height: 48,
+    backgroundColor: Color.headerBlue,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  sheetNextBtnText: {
+    color: Color.white,
+    fontSize: 16,
+    fontFamily: Constants.fontFamilyMedium,
+    fontWeight: '600',
   },
 });

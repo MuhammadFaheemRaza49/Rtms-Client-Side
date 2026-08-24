@@ -25,7 +25,7 @@ import {
 } from '../../redux/restaurant';
 
 // Figma-Style Custom Vector Outline Icons
-const EditIcon = ({ color = '#FFF', size = 16 }) => (
+const EditIcon = ({ color = Color.white, size = 16 }) => (
   <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center', transform: [{ rotate: '45deg' }] }}>
     <View style={{ width: size * 0.3, height: size * 0.7, borderWidth: 1.5, borderColor: color, borderBottomWidth: 0, borderTopLeftRadius: 1, borderTopRightRadius: 1 }} />
     <View style={{ width: 0, height: 0, borderLeftWidth: size * 0.15, borderRightWidth: size * 0.15, borderTopWidth: size * 0.25, borderStyle: 'solid', borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: color }} />
@@ -127,14 +127,14 @@ const SearchResultsScreen = () => {
           <Text style={styles.gridCardLoc} numberOfLines={1}>
             {item.location}
           </Text>
-          
+
           <View style={styles.ratingRow}>
             <Text style={styles.starText}>★ ★ ★ ★ ★</Text>
             <Text style={styles.reviewCountText}>
               ({item.reviewCount || '1,123'})
             </Text>
           </View>
-          
+
           <Text style={styles.priceText}>
             From SAR {item.startingPrice || '300'}
           </Text>
@@ -390,18 +390,18 @@ const styles = StyleSheet.create({
   errorContainer: {
     padding: Constants.spacing.large,
     alignItems: 'center',
-    backgroundColor: '#FEE2E2',
+    backgroundColor: Color.redBackgroundHighligther,
     marginHorizontal: Constants.spacing.large,
     borderRadius: Constants.borderRadius.medium,
     marginBottom: Constants.spacing.medium,
   },
   errorText: {
-    color: '#DC2626',
+    color: Color.delete,
     fontSize: Constants.fontSize.body,
     marginBottom: Constants.spacing.medium,
   },
   retryButton: {
-    backgroundColor: '#DC2626',
+    backgroundColor: Color.delete,
     paddingHorizontal: Constants.spacing.large,
     paddingVertical: Constants.spacing.small,
     borderRadius: Constants.borderRadius.small,

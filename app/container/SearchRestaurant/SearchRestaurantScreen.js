@@ -1,6 +1,6 @@
 import React from 'react';
-import {StyleSheet, View} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Color from '../../common/Color';
 import SearchSelection from './SearchSelection';
@@ -9,9 +9,9 @@ import SearchSelection from './SearchSelection';
 // whole screen — rendered inline full-screen, no overlay, no drop-down.
 const SearchRestaurantScreen = () => {
   return (
-    <View style={[styles.flex, {backgroundColor: Color.headerBlue}]}>
+    <View style={[styles.flex, { backgroundColor: Color.headerBlue }]}>
       <SafeAreaView edges={['top']} style={styles.flex}>
-        <View style={[styles.flex, {backgroundColor: Color.background}]}>
+        <View style={[styles.flex, { backgroundColor: Color.background }]}>
           <SearchSelection style={styles.searchSelection} />
         </View>
       </SafeAreaView>

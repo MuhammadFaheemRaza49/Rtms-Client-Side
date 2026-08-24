@@ -22,6 +22,7 @@ const SearchCityField2 = ({
   icon = undefined,
   fieldBackground,
   layerColor,
+  placeholderTextColor,
   ...rest
 }) => {
   const {
@@ -57,7 +58,7 @@ const SearchCityField2 = ({
           selectionColor={Color.white}
           value={value}
           autoFocus={autoFocus}
-          placeholderTextColor={resolvedLayerColor}
+          placeholderTextColor={placeholderTextColor ?? resolvedLayerColor}
           onChangeText={onChange}
           style={StyleSheet.flatten([
             styles.editStyle,
