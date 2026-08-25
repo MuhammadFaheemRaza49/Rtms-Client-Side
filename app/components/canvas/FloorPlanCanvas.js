@@ -97,8 +97,8 @@ function FloorPlanCanvasInner({
   // Configure Gesture Handlers for Dragging & Pinching
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onStartShouldSetPanResponderCapture: () => false,
+      onStartShouldSetPanResponder: (evt) => evt.nativeEvent.touches.length >= 2,
+      onStartShouldSetPanResponderCapture: (evt) => evt.nativeEvent.touches.length >= 2,
       onMoveShouldSetPanResponder: (evt, gestureState) => {
         const touches = evt.nativeEvent.touches;
         // On details page (scrollable is false), only respond if pinching (2 fingers)
