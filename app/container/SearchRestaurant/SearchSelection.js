@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TextElement from '../components/text/Text';
 import { Color } from '../../common';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import moment from 'moment';
 import { scale } from '../../ScalingUtils';
 import Constants from '../../common/Constants';
@@ -107,6 +107,7 @@ const SearchSelection = ({
   fadeAnimBottom,
   isChange = false,
   onBack = undefined,
+  route,
 }) => {
   const {
     value: { t, themeColor: { colors } },
@@ -117,6 +118,7 @@ const SearchSelection = ({
 
   const dispatch = useDispatch();
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
 
   const searchResults = useSelector(state => state.restaurant.searchResults);
   const trending = useSelector(state => state.restaurant.trending);
@@ -174,6 +176,13 @@ const SearchSelection = ({
   }, [isOpenList]);
 
   useEffect(() => {
+    if (route?.params?.autoOpen) {
+      navigation.setParams({ autoOpen: undefined });
+      setList(true);
+    }
+  }, [route?.params?.autoOpen]);
+
+  useEffect(() => {
     // Debounced — busapp filters locally and never hits the API per keystroke
     if (query && query.length >= 2) {
       const timer = setTimeout(() => {
@@ -184,6 +193,7 @@ const SearchSelection = ({
   }, [query, selectedDate, guestCount]);
 
   useEffect(() => {
+    if (!isFocused) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (isOpenList) {
         if (query && query.length > 0) {
@@ -196,37 +206,40 @@ const SearchSelection = ({
       return false;
     });
     return () => sub.remove();
-  }, [isOpenList, query]);
+  }, [isOpenList, query, isFocused]);
 
   const calculateToValue = (
     expandedHeightRef,
     editFieldHeightRef,
     extraOffset = 35,
   ) => {
+    const expanded = expandedHeightRef?.current || 176;
+    const field = editFieldHeightRef?.current || 48;
     return (
-      -expandedHeightRef.current +
-      editFieldHeightRef.current +
+      -expanded +
+      field +
       extraOffset
     );
   };
 
-  const animateToOpenRestaurantList = () => {
+  const animateToOpenRestaurantList = (immediate = false) => {
     setIsAnimFinished(false);
+    const duration = immediate ? 0 : animDuration;
     Animated.parallel([
       Animated.timing(translateAnim, {
         toValue: calculateToValue(expandedHeight, editFieldHeight),
-        duration: animDuration,
+        duration: duration,
         easing: Easing.out(Easing.ease),
         useNativeDriver: true,
       }),
       Animated.timing(animContentFade, {
         toValue: 0,
-        duration: animDuration,
+        duration: duration,
         useNativeDriver: true,
       }),
       Animated.timing(animEditCityOp, {
         toValue: 1,
-        duration: animDuration,
+        duration: duration,
         useNativeDriver: true,
       }),
     ]).start(() => {
@@ -435,7 +448,7 @@ const SearchSelection = ({
             },
           ])}>
           <Animated.View style={{ opacity: animContentFade }}>
-            <View style={[homeStyle.rowHorizantalCenter, { alignItems: 'center', marginBottom: 12 }]}>
+            <View style={[homeStyle.rowHorizantalCenter, { alignItems: 'center', marginBottom: 12, paddingHorizontal: 14 }]}>
               <TouchableOpacity onPress={() => navigation.goBack()}>
                 <BackIconComponent color={Color.white} />
               </TouchableOpacity>
@@ -455,7 +468,7 @@ const SearchSelection = ({
                   onLayout={event => {
                     fieldHeight.current = event.nativeEvent.layout.height;
                   }}
-                  style={[animatedStyle1]}>
+                  style={[animatedStyle1, { marginLeft: 20, marginRight: 20 }]}>
                   <SelectionButton
                     icon={<Search color={Color.white} size={20} />}
                     placeholder={t('search_placeholder')}
@@ -464,21 +477,7 @@ const SearchSelection = ({
                     textStyle={{ color: Color.white }}
                   />
                 </Animated.View>
-
-                <SelectionButton
-                  icon={<Calendar size={20} strokeWidth={2} color={Color.white} />}
-                  placeholder={'Select Date'}
-                  onPress={() => modalizeRef.current?.open()}
-                  title={selectedDate}
-                />
               </View>
-
-              <SelectionButton
-                icon={<Users size={20} strokeWidth={2} color={Color.white} />}
-                placeholder={'Guests'}
-                onPress={() => guestsBottomSheetRef.current?.open()}
-                title={`${guestCount} ${guestCount === 1 ? 'Guest' : 'Guests'}`}
-              />
             </View>
           </Animated.View>
           {isOpenList && (
@@ -486,11 +485,11 @@ const SearchSelection = ({
               style={{
                 opacity: animEditCityOp,
                 transform: [{ translateY: translateFirstField }],
-                marginTop: 10,
+                marginTop: 12,
                 left: 10,
-                right: 10,
+                right: 20,
                 position: 'absolute',
-                bottom: 15,
+                bottom: 18,
               }}>
               <SearchCityField2
                 isFrom={true}
@@ -677,11 +676,9 @@ export default SearchSelection;
 
 const styles = StyleSheet.create({
   topHeader: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 0,
     paddingVertical: 10,
     paddingBottom: 24,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
   },
   guestsStepper: {
     flexDirection: 'row',

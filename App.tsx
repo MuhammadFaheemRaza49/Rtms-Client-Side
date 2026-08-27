@@ -15,6 +15,7 @@ import SearchEmptyStateScreen from './app/container/SearchRestaurant/SearchEmpty
 import RestaurantDetailsScreen from './app/container/RestaurantDetails/RestaurantDetailsScreen';
 import DateTimeSelectScreen from './app/container/BookTable/DateTimeSelectScreen';
 import LiveFloorViewScreen from './app/container/BookTable/LiveFloorViewScreen';
+import GuestDetailsScreen from './app/container/BookTable/GuestDetailsScreen';
 import ChargesSummaryScreen from './app/container/Checkout/ChargesSummaryScreen';
 import ReviewDetailsScreen from './app/container/Checkout/ReviewDetailsScreen';
 import BookingConfirmationScreen from './app/container/BookTable/BookingConfirmationScreen';
@@ -66,6 +67,11 @@ function App() {
                 <Stack.Screen
                   name={NavigationPath.LiveFloorView}
                   component={LiveFloorViewScreen}
+                />
+
+                <Stack.Screen
+                  name={NavigationPath.AdditionalNeeds}
+                  component={GuestDetailsScreen}
                 />
 
                 <Stack.Screen

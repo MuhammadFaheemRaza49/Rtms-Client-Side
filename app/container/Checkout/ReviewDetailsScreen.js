@@ -33,7 +33,7 @@ export default function ReviewDetailsScreen() {
   const route = useRoute();
   const dispatch = useDispatch();
 
-  const { restaurantId } = route.params || {};
+  const { restaurantId, guestInfo } = route.params || {};
   const activeBranchId = restaurantId || '00000000-0000-7000-8000-000000000030';
 
   const { selectedRestaurant } = useSelector((state) => state.restaurant);
@@ -251,14 +251,36 @@ export default function ReviewDetailsScreen() {
                 <Lucide.ChevronDown color="#FFF" size={20} />
               )}
             </TouchableOpacity>
-
+  
             {roomDetailsExpanded && (
               <View style={styles.cardBody}>
+                {guestInfo && (
+                  <View style={{ marginBottom: 16 }}>
+                    <View style={styles.guestHeaderRow}>
+                      <Lucide.User color="#4B5563" size={16} style={{ marginRight: 6 }} />
+                      <Text style={styles.guestTitle}>Guest Info (Lead Passenger)</Text>
+                    </View>
+                    <View style={styles.gridRow}>
+                      <View style={styles.gridCol}>
+                        <Text style={styles.gridLabel}>Name</Text>
+                        <Text style={styles.gridValue}>
+                          {guestInfo.salutation}. {guestInfo.fullName || 'Shahzaib Asif'}
+                        </Text>
+                      </View>
+                      <View style={styles.gridCol}>
+                        <Text style={styles.gridLabel}>{guestInfo.idType}</Text>
+                        <Text style={styles.gridValue}>{guestInfo.idNumber || 'Not Provided'}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.divider} />
+                  </View>
+                )}
+
                 {selectedTablesList.length > 0 ? (
                   selectedTablesList.map((table, index) => (
                     <View key={table.id} style={{ marginTop: index > 0 ? 16 : 0 }}>
                       <View style={styles.guestHeaderRow}>
-                        <Lucide.User color="#4B5563" size={16} style={{ marginRight: 6 }} />
+                        <Lucide.Utensils color="#4B5563" size={16} style={{ marginRight: 6 }} />
                         <Text style={styles.guestTitle}>Table {index + 1}</Text>
                       </View>
                       <View style={styles.gridRow}>

@@ -54,7 +54,7 @@ export default function LiveFloorViewScreen() {
 
   const handleProceed = () => {
     if (selectedTableIds.length === 0) return;
-    navigation.navigate(NavigationPath.ReviewDetails, { restaurantId: activeBranchId });
+    navigation.navigate(NavigationPath.AdditionalNeeds, { restaurantId: activeBranchId });
   };
 
   const handleBack = () => {
@@ -153,7 +153,7 @@ export default function LiveFloorViewScreen() {
           style={[styles.proceedBtn, selectedTableIds.length === 0 && styles.disabledBtn]}
           onPress={handleProceed}
         >
-          <Text style={styles.proceedBtnText}>Proceed to Review</Text>
+          <Text style={styles.proceedBtnText}>Next: Passenger Details</Text>
         </TouchableOpacity>
       </View>
     </View>

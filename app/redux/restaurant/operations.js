@@ -46,6 +46,9 @@ export const getHomeListings = () => {
                     const branchesResponse = await RestApi.get(`/portal/restaurants/${rest.id}/branches`);
                     if (branchesResponse && Array.isArray(branchesResponse.data)) {
                       for (const branch of branchesResponse.data) {
+                        if (branch.status !== 'LIVE') {
+                          continue;
+                        }
                         const branchName = branch.nameI18n?.en || branch.name || 'Unnamed Branch';
                         const normalizedName = branchName.toLowerCase().trim();
                         if (!seenBranchIds.has(branch.id) && !seenBranchNames.has(normalizedName)) {
@@ -123,6 +126,9 @@ export const searchRestaurants = (query, date, guestCount) => {
                     const branchesResponse = await RestApi.get(`/portal/restaurants/${rest.id}/branches`);
                     if (branchesResponse && Array.isArray(branchesResponse.data)) {
                       for (const branch of branchesResponse.data) {
+                        if (branch.status !== 'LIVE') {
+                          continue;
+                        }
                         const branchName = branch.nameI18n?.en || branch.name || 'Unnamed Branch';
                         const normalizedName = branchName.toLowerCase().trim();
                         if (!seenBranchIds.has(branch.id) && !seenBranchNames.has(normalizedName)) {

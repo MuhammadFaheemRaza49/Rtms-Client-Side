@@ -30,6 +30,7 @@ import DatePickerModal from '../BookTable/DatePickerModal';
 import TimeSlotSelectModal from '../BookTable/TimeSlotSelectModal';
 import BottomSheet from '../BottomSheet/NewGorhomBS';
 import CalenderComponent from '../SearchRestaurant/components/CalenderComponent';
+import SelectionButton from '../SearchRestaurant/shared/HotelRevamp/components/SelectionButton';
 
 import { getRestaurantDetails } from '../../redux/restaurant';
 import {
@@ -248,6 +249,41 @@ const DashedDivider = () => (
   </View>
 );
 
+const GuestsSelectorContent = ({ initialCount, onNext }) => {
+  const [count, setCount] = useState(initialCount);
+
+  useEffect(() => {
+    setCount(initialCount);
+  }, [initialCount]);
+
+  return (
+    <View style={styles.sheetContainer}>
+      <Text style={styles.sheetTitle}>Select No. of Guests</Text>
+      <View style={styles.sheetRow}>
+        <Text style={styles.sheetLabel}>Guests</Text>
+        <View style={styles.sheetStepper}>
+          <TouchableOpacity
+            style={styles.sheetStepperBtn}
+            onPress={() => setCount(Math.max(1, count - 1))}>
+            <Lucide.Minus size={16} strokeWidth={2.5} color="#4B5563" />
+          </TouchableOpacity>
+          <Text style={styles.sheetStepperVal}>{count}</Text>
+          <TouchableOpacity
+            style={styles.sheetStepperBtn}
+            onPress={() => setCount(count + 1)}>
+            <Lucide.Plus size={16} strokeWidth={2.5} color="#4B5563" />
+          </TouchableOpacity>
+        </View>
+      </View>
+      <TouchableOpacity
+        style={styles.sheetNextBtn}
+        onPress={() => onNext(count)}>
+        <Text style={styles.sheetNextBtnText}>Next</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 const RestaurantDetailsScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -347,41 +383,12 @@ const RestaurantDetailsScreen = () => {
     };
   });
 
-  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
-  const searchHeaderTranslateY = useRef(new Animated.Value(-260)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
-
-  const openSearchHeader = () => {
-    setIsSearchExpanded(true);
-    Animated.parallel([
-      Animated.timing(searchHeaderTranslateY, {
-        toValue: 0,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-      Animated.timing(backdropOpacity, {
-        toValue: 1,
-        duration: 250,
-        useNativeDriver: true,
-      })
-    ]).start();
+  const handleBack = () => {
+    navigation.goBack();
   };
 
-  const closeSearchHeader = () => {
-    Animated.parallel([
-      Animated.timing(searchHeaderTranslateY, {
-        toValue: -260,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(backdropOpacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      })
-    ]).start(() => {
-      setIsSearchExpanded(false);
-    });
+  const openSearchHeader = () => {
+    navigation.goBack();
   };
 
   // Layout positions for scrolling
@@ -512,7 +519,10 @@ const RestaurantDetailsScreen = () => {
     dispatch(getTables(targetId, selectedDate, selectedTimeSlot));
   }, [dispatch, restaurantId, selectedDate, selectedTimeSlot]);
 
-  if (loading || !selectedRestaurant) {
+  const targetId = restaurantId || '00000000-0000-7000-8000-000000000030';
+  const isCorrectRestaurant = selectedRestaurant && selectedRestaurant.id === targetId;
+
+  if (loading || !isCorrectRestaurant) {
     return (
       <View style={styles.loaderContainer}>
         <ActivityIndicator size="large" color={Color.headerBlue} />
@@ -651,31 +661,25 @@ const RestaurantDetailsScreen = () => {
     ? moment(selectedDate, 'YYYY-MM-DD').format('DD MMM YYYY')
     : moment().format('DD MMM YYYY');
 
-  const backdropTranslateY = backdropOpacity.interpolate({
-    inputRange: [0, 0.01, 1],
-    outputRange: [SCREEN_HEIGHT, 0, 0],
-  });
+
 
   return (
     <View style={styles.container}>
       {/* Absolute Overlay Header with smooth animated color transition */}
       <Animated.View style={[styles.headerOverlay, { paddingTop: insets.top + 10, height: 68 + insets.top, backgroundColor: Color.headerBlue, paddingBottom: 10 }]}>
-        <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={handleBack} style={{ paddingRight: 0 }}>
           <BackIconComponent color={Color.white} />
         </TouchableOpacity>
 
-        {/* Dynamic Edit/Search Bar matching Figma */}
-        <TouchableOpacity
-          style={styles.headerSearchSelector}
-          onPress={openSearchHeader}
-        >
-          <Text style={styles.headerSearchText}>
-            {displayDateText} | 2 Guests
-          </Text>
-          <PencilIcon color="#FFF" size={14} />
-        </TouchableOpacity>
+        <View style={{ flex: 1, marginLeft: 6, marginRight: 4, marginTop: -10 }}>
+          <SelectionButton
+            icon={<Lucide.Search color={Color.white} size={18} />}
+            placeholder="Search Restaurants"
+            onPress={openSearchHeader}
+          />
+        </View>
 
-        <TouchableOpacity style={styles.headerBtn}>
+        <TouchableOpacity style={{ paddingLeft: 4 }}>
           <ShareIcon color="#FFF" size={20} />
         </TouchableOpacity>
       </Animated.View>
@@ -754,16 +758,22 @@ const RestaurantDetailsScreen = () => {
             <Text style={styles.addressText}>{address || 'Not Available'}</Text>
 
             {/* Premium Exceptional Review Badge Row */}
-            <View style={styles.badgeRow}>
-              <View style={styles.exceptionalBadge}>
-                <Text style={styles.exceptionalBadgeText}>5</Text>
+            {reviewCount && reviewCount > 0 ? (
+              <View style={styles.badgeRow}>
+                <View style={styles.exceptionalBadge}>
+                  <Text style={styles.exceptionalBadgeText}>{rating || '5'}</Text>
+                </View>
+                <Text style={styles.exceptionalText}>Exceptional</Text>
+                <View style={styles.badgeVerticalLine} />
+                <Text style={styles.badgeReviewsText}>
+                  ({reviewCount}) Reviews
+                </Text>
               </View>
-              <Text style={styles.exceptionalText}>Exceptional</Text>
-              <View style={styles.badgeVerticalLine} />
-              <Text style={styles.badgeReviewsText}>
-                {reviewCount ? `(${reviewCount}) Reviews` : '(2) Reviews'}
-              </Text>
-            </View>
+            ) : (
+              <View style={styles.badgeRow}>
+                <Text style={styles.badgeReviewsText}>No Reviews Yet</Text>
+              </View>
+            )}
 
             <DashedDivider />
 
@@ -1290,133 +1300,6 @@ const RestaurantDetailsScreen = () => {
         </View>
       )}
 
-      {/* Light black semi-transparent backdrop overlay cover */}
-      <Animated.View
-        pointerEvents="auto"
-        style={{
-          position: 'absolute',
-          top: 0,
-          bottom: 0,
-          left: 0,
-          right: 0,
-          width: Dimensions.get('window').width,
-          height: Dimensions.get('window').height,
-          backgroundColor: 'rgba(0, 0, 0, 0.45)',
-          opacity: backdropOpacity,
-          transform: [{ translateY: backdropTranslateY }],
-          zIndex: 98,
-        }}
-      >
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={closeSearchHeader}
-          style={{ flex: 1 }}
-        />
-      </Animated.View>
-
-      {/* Sliding Expanded Search Header Panel */}
-      <Animated.View style={[
-        styles.headerOverlay,
-        {
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          paddingTop: insets.top,
-          height: 176 + insets.top,
-          backgroundColor: Color.headerBlue,
-          flexDirection: 'column',
-          alignItems: 'stretch',
-          justifyContent: 'flex-start',
-          transform: [{ translateY: searchHeaderTranslateY }],
-          zIndex: 99,
-          paddingBottom: 16,
-        }
-      ]}>
-        {/* Top Row: Back arrow, Title, Country selection */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 48 }}>
-          <TouchableOpacity style={styles.headerBtn} onPress={closeSearchHeader}>
-            <BackIconComponent color={Color.white} />
-          </TouchableOpacity>
-          <Text style={{ color: Color.white, fontSize: 18, fontWeight: '700', fontFamily: Constants.fontFamilyBold || 'System' }}>
-            Search Restaurant
-          </Text>
-          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', paddingRight: 4 }}>
-            <Text style={{ color: Color.white, fontSize: 13, marginRight: 4, fontFamily: Constants.fontFamilyMedium || 'System' }}>Pakistan</Text>
-            <Lucide.ChevronDown color={Color.white} size={14} strokeWidth={2.5} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Date Selection Box */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: 'rgba(255,255,255,0.15)',
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.3)',
-            borderRadius: 8,
-            height: 42,
-            paddingHorizontal: 12,
-            marginTop: 6,
-          }}
-          onPress={() => {
-            dateBottomSheetRef.current?.open();
-          }}
-        >
-          <Lucide.Calendar color={Color.white} size={18} strokeWidth={2} style={{ marginRight: 8 }} />
-          <Text style={{ color: Color.white, fontSize: 14, fontFamily: Constants.fontFamilyMedium || 'System' }}>
-            {displayFullDateRangeText}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Guest Selection Row */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: 'rgba(255,255,255,0.15)',
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.3)',
-              borderRadius: 8,
-              height: 42,
-              paddingHorizontal: 12,
-              marginRight: 10,
-            }}
-            onPress={() => {
-              guestsBottomSheetRef.current?.open();
-            }}
-          >
-            <Lucide.Users color={Color.white} size={18} strokeWidth={2} style={{ marginRight: 8 }} />
-            <Text style={{ color: Color.white, fontSize: 14, fontFamily: Constants.fontFamilyMedium || 'System' }}>
-              {guestCount} Guests
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: 8,
-              backgroundColor: Color.white,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            onPress={() => {
-              closeSearchHeader();
-              dispatch(getTables(restaurantId || '00000000-0000-7000-8000-000000000030', selectedDate, selectedTimeSlot));
-            }}
-          >
-            <Lucide.Search color={Color.headerBlue} size={20} strokeWidth={2.5} />
-          </TouchableOpacity>
-        </View>
-      </Animated.View>
-
       {/* Date Selection Calendar Bottom Sheet Modal */}
       <BottomSheet isBottomSafeArea={true} refRBSheet={dateBottomSheetRef}>
         <CalenderComponent
@@ -1432,31 +1315,14 @@ const RestaurantDetailsScreen = () => {
       </BottomSheet>
 
       {/* Guests Selection Bottom Sheet Modal */}
-      <BottomSheet isBottomSafeArea={false} refRBSheet={guestsBottomSheetRef}>
-        <View style={styles.sheetContainer}>
-          <Text style={styles.sheetTitle}>Select No. of Guests</Text>
-          <View style={styles.sheetRow}>
-            <Text style={styles.sheetLabel}>Guests</Text>
-            <View style={styles.sheetStepper}>
-              <TouchableOpacity
-                style={styles.sheetStepperBtn}
-                onPress={() => dispatch(setGuestCount(Math.max(1, guestCount - 1)))}>
-                <Lucide.Minus size={16} strokeWidth={2.5} color="#4B5563" />
-              </TouchableOpacity>
-              <Text style={styles.sheetStepperVal}>{guestCount}</Text>
-              <TouchableOpacity
-                style={styles.sheetStepperBtn}
-                onPress={() => dispatch(setGuestCount(guestCount + 1))}>
-                <Lucide.Plus size={16} strokeWidth={2.5} color="#4B5563" />
-              </TouchableOpacity>
-            </View>
-          </View>
-          <TouchableOpacity
-            style={styles.sheetNextBtn}
-            onPress={() => guestsBottomSheetRef.current?.close()}>
-            <Text style={styles.sheetNextBtnText}>Next</Text>
-          </TouchableOpacity>
-        </View>
+      <BottomSheet isBottomSafeArea={false} refRBSheet={guestsBottomSheetRef} adjustHeight={false} modalHeight={250}>
+        <GuestsSelectorContent
+          initialCount={guestCount}
+          onNext={(finalCount) => {
+            dispatch(setGuestCount(finalCount));
+            guestsBottomSheetRef.current?.close();
+          }}
+        />
       </BottomSheet>
     </View>
   );
