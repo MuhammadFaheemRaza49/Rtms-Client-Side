@@ -29,14 +29,49 @@ export default function TimeSlotSelectModal({
   onClose,
   initialSlot,
   onConfirm,
+  availableSlots = [],
 }) {
   const [selectedSlot, setSelectedSlot] = useState(() => initialSlot);
 
-  const handleSelectSlot = (label, period) => {
+  const hasDynamicSlots = availableSlots && availableSlots.length > 0;
+  
+  let displayPeriods = MEAL_PERIODS;
+  if (hasDynamicSlots) {
+    const groups = {
+      Breakfast: [],
+      Lunch: [],
+      Dinner: [],
+      General: [],
+    };
+    availableSlots.forEach((slot) => {
+      const p = slot.period || 'General';
+      if (groups[p]) {
+        groups[p].push(slot);
+      } else {
+        groups.General.push(slot);
+      }
+    });
+
+    displayPeriods = [
+      { title: 'Breakfast', slots: groups.Breakfast },
+      { title: 'Lunch', slots: groups.Lunch },
+      { title: 'Dinner', slots: groups.Dinner },
+      { title: 'General', slots: groups.General },
+    ].filter(p => p.slots.length > 0);
+  }
+
+  const handleSelectSlot = (slotItem, period) => {
+    const isObject = typeof slotItem === 'object' && slotItem !== null;
+    const label = isObject ? slotItem.label : slotItem;
+    
     if (selectedSlot?.label === label) {
       setSelectedSlot(null);
     } else {
-      setSelectedSlot({ label, period });
+      if (isObject) {
+        setSelectedSlot({ ...slotItem, period });
+      } else {
+        setSelectedSlot({ label, period });
+      }
     }
   };
 
@@ -67,15 +102,17 @@ export default function TimeSlotSelectModal({
               </View>
 
               <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollArea}>
-                {MEAL_PERIODS.map((period) => (
+                {displayPeriods.map((period) => (
                   <View key={period.title} style={styles.periodSection}>
                     <Text style={styles.periodTitle}>{period.title}</Text>
                     <View style={styles.chipsContainer}>
                       {period.slots.map((slot) => {
-                        const isSelected = selectedSlot?.label === slot;
+                        const isObject = typeof slot === 'object' && slot !== null;
+                        const label = isObject ? slot.label : slot;
+                        const isSelected = selectedSlot?.label === label;
                         return (
                           <TouchableOpacity
-                            key={slot}
+                            key={label}
                             style={[
                               styles.slotChip,
                               isSelected && styles.selectedChip,
@@ -88,7 +125,7 @@ export default function TimeSlotSelectModal({
                                 isSelected && styles.selectedChipText,
                               ]}
                             >
-                              {slot}
+                              {label}
                             </Text>
                           </TouchableOpacity>
                         );

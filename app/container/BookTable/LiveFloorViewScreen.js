@@ -14,6 +14,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import Color from '../../common/Color';
 import Constants from '../../common/Constants';
 import NavigationPath from '../../navigation/NavigationPath';
+import * as Lucide from 'lucide-react-native';
+import BackIconComponent from '../ComponentsV2/ComponentsV2/BackIconComponent';
 
 import { FloorPlanCanvas } from '../../components/canvas/FloorPlanCanvas';
 import {
@@ -52,7 +54,7 @@ export default function LiveFloorViewScreen() {
 
   const handleProceed = () => {
     if (selectedTableIds.length === 0) return;
-    navigation.navigate(NavigationPath.AdditionalNeeds, { restaurantId: activeBranchId });
+    navigation.navigate(NavigationPath.ReviewDetails, { restaurantId: activeBranchId });
   };
 
   const handleBack = () => {
@@ -65,10 +67,10 @@ export default function LiveFloorViewScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={[styles.headerContainer, { paddingTop: insets.top + 10 }]}>
+      <View style={[styles.headerContainer, { paddingTop: insets.top + 10, paddingBottom: 16 }]}>
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-            <Text style={styles.backIcon}>‹</Text>
+          <TouchableOpacity onPress={handleBack}>
+            <BackIconComponent color={Color.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Select Table</Text>
         </View>
@@ -151,7 +153,7 @@ export default function LiveFloorViewScreen() {
           style={[styles.proceedBtn, selectedTableIds.length === 0 && styles.disabledBtn]}
           onPress={handleProceed}
         >
-          <Text style={styles.proceedBtnText}>Next: Additional Needs</Text>
+          <Text style={styles.proceedBtnText}>Proceed to Review</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -166,9 +168,6 @@ const styles = StyleSheet.create({
   headerContainer: {
     backgroundColor: Color.headerBlue,
     paddingHorizontal: Constants.spacing.large,
-    paddingBottom: Constants.spacing.large,
-    borderBottomLeftRadius: Constants.borderRadius.large,
-    borderBottomRightRadius: Constants.borderRadius.large,
   },
   headerRow: {
     flexDirection: 'row',

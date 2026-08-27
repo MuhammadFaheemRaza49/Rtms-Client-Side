@@ -1,88 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
-  ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { useDispatch, useSelector } from 'react-redux';
+import { useNavigation } from '@react-navigation/native';
+import * as Lucide from 'lucide-react-native';
 
 import Color from '../../common/Color';
 import Constants from '../../common/Constants';
-import NavigationPath from '../../navigation/NavigationPath';
-import RestApi from '../../services/restclient/RestApi';
-
-import { createBooking } from '../../redux/booking';
+import BackIconComponent from '../ComponentsV2/ComponentsV2/BackIconComponent';
 
 export default function ChargesSummaryScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const route = useRoute();
-  const dispatch = useDispatch();
-
-  const { restaurantId } = route.params || {};
-  const activeBranchId = restaurantId || '00000000-0000-7000-8000-000000000030';
-
-  const { selectedRestaurant } = useSelector((state) => state.restaurant);
-  const { selectedDate, selectedTimeSlot, guestCount, specialRequests } = useSelector((state) => state.booking);
-  const { selectedTableIds, additionalNeeds } = useSelector((state) => state.tables);
-  const { highChairCount, wheelchair } = additionalNeeds || { highChairCount: 0, wheelchair: false };
-
-  // States
-  const [policy, setPolicy] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
-
-  useEffect(() => {
-    const fetchPolicy = async () => {
-      try {
-        const policyResponse = await RestApi.get(`/portal/branches/${activeBranchId}/booking-policy`);
-        setPolicy(policyResponse);
-      } catch (err) {
-        console.warn('Failed to load policy in payment:', err.message);
-      }
-    };
-    fetchPolicy();
-  }, [activeBranchId]);
-
-  const handlePayment = async () => {
-    if (!cardNumber || !cardExpiry || !cardCvv) return;
-    setLoading(true);
-    try {
-      // 1. Create booking in system
-      const payload = {
-        date: selectedDate,
-        startTime: selectedTimeSlot?.label ? selectedTimeSlot.label.split(' - ')[0] : '18:00',
-        endTime: selectedTimeSlot?.label ? selectedTimeSlot.label.split(' - ')[1] : '19:30',
-        startsAt: selectedTimeSlot?.startsAt || null,
-        partySize: guestCount,
-        specialRequests,
-        tableIds: selectedTableIds.length > 0
-          ? selectedTableIds
-          : (selectedTimeSlot?.tableIds || []),
-      };
-
-      const bookingResult = await dispatch(createBooking(payload, activeBranchId));
-
-      // 2. Process deposit status update
-      if (bookingResult && bookingResult.id) {
-        await RestApi.post(`/portal/branches/${activeBranchId}/bookings/${bookingResult.id}/deposit/paid`);
-      }
-
-      navigation.navigate(NavigationPath.BookingConfirmation);
-    } catch (err) {
-      console.warn('Payment or booking failed:', err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleBack = () => {
     navigation.goBack();
@@ -91,99 +24,29 @@ export default function ChargesSummaryScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={[styles.headerContainer, { paddingTop: insets.top + 10 }]}>
+      <View style={[styles.headerContainer, { paddingTop: insets.top + 10, paddingBottom: 16 }]}>
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-            <Text style={styles.backIcon}>‹</Text>
+          <TouchableOpacity onPress={handleBack}>
+            <BackIconComponent color={Color.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Deposit Payment</Text>
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Cost Summary Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardHeader}>Charges Summary</Text>
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Deposit Security</Text>
-            <Text style={styles.priceValue}>
-              {policy?.depositAmount || '100'} {policy?.currency || 'SAR'}
-            </Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.priceRow}>
-            <Text style={styles.totalLabel}>Total Charge</Text>
-            <Text style={styles.totalValue}>
-              {policy?.depositAmount || '100'} {policy?.currency || 'SAR'}
-            </Text>
-          </View>
+      {/* Main Beautiful Coming Soon Block */}
+      <View style={styles.content}>
+        <View style={styles.iconCircle}>
+          <Lucide.CreditCard color="#0B4FA4" size={48} strokeWidth={1.5} />
         </View>
 
-        {/* Payment Fields */}
-        <View style={styles.card}>
-          <Text style={styles.cardHeader}>Card Details</Text>
-          
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Card Number</Text>
-            <TextInput
-              keyboardType="numeric"
-              placeholder="xxxx xxxx xxxx xxxx"
-              placeholderTextColor={Color.textMuted}
-              value={cardNumber}
-              onChangeText={setCardNumber}
-              style={styles.textInput}
-            />
-          </View>
+        <Text style={styles.title}>Coming Soon</Text>
+        <Text style={styles.subtitle}>
+          Online deposit payment integration is currently under development. Soon you'll be able to pay and secure your reservations instantly using your debit or credit card.
+        </Text>
 
-          <View style={styles.rowFields}>
-            <View style={[styles.fieldGroup, { flex: 1, marginRight: Constants.spacing.small }]}>
-              <Text style={styles.fieldLabel}>Expiry Date</Text>
-              <TextInput
-                placeholder="MM/YY"
-                placeholderTextColor={Color.textMuted}
-                value={cardExpiry}
-                onChangeText={(text) => {
-                  // Auto-insert slash after MM
-                  if (text.length === 2 && !text.includes('/') && cardExpiry.length < 2) {
-                    setCardExpiry(text + '/');
-                  } else {
-                    setCardExpiry(text);
-                  }
-                }}
-                maxLength={5}
-                style={styles.textInput}
-              />
-            </View>
-
-            <View style={[styles.fieldGroup, { flex: 1, marginLeft: Constants.spacing.small }]}>
-              <Text style={styles.fieldLabel}>CVV</Text>
-              <TextInput
-                keyboardType="numeric"
-                secureTextEntry
-                placeholder="xxx"
-                placeholderTextColor={Color.textMuted}
-                value={cardCvv}
-                onChangeText={setCardCvv}
-                style={styles.textInput}
-              />
-            </View>
-          </View>
-        </View>
-      </ScrollView>
-
-      {/* Action Bar */}
-      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        {loading ? (
-          <ActivityIndicator size="small" color={Color.headerBlue} />
-        ) : (
-          <TouchableOpacity
-            disabled={!cardNumber || !cardExpiry || !cardCvv}
-            style={[styles.payBtn, (!cardNumber || !cardExpiry || !cardCvv) && styles.disabledPayBtn]}
-            onPress={handlePayment}
-          >
-            <Text style={styles.payBtnText}>Pay & Secure Booking</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity style={styles.button} onPress={handleBack}>
+          <Text style={styles.buttonText}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -192,127 +55,68 @@ export default function ChargesSummaryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Color.background,
+    backgroundColor: '#F8FAFC',
   },
   headerContainer: {
-    backgroundColor: Color.headerBlue,
-    paddingHorizontal: Constants.spacing.large,
-    paddingBottom: Constants.spacing.large,
-    borderBottomLeftRadius: Constants.borderRadius.large,
-    borderBottomRightRadius: Constants.borderRadius.large,
+    backgroundColor: '#0B4FA4',
+    paddingHorizontal: 20,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  backBtn: {
-    marginRight: Constants.spacing.medium,
-  },
-  backIcon: {
-    color: Color.white,
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
   headerTitle: {
-    color: Color.white,
+    color: '#FFF',
     fontSize: 18,
     fontWeight: 'bold',
   },
-  scrollContent: {
-    padding: Constants.spacing.large,
+  content: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingBottom: 80,
   },
-  card: {
-    backgroundColor: Color.surface,
-    borderRadius: Constants.borderRadius.medium,
+  iconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
     borderWidth: 1,
-    borderColor: Color.border,
-    padding: Constants.spacing.large,
-    marginBottom: Constants.spacing.medium,
+    borderColor: '#BFDBFE',
   },
-  cardHeader: {
-    fontSize: 13,
+  title: {
+    fontSize: 22,
     fontWeight: 'bold',
-    color: Color.textMuted,
-    textTransform: 'uppercase',
+    color: '#1E293B',
     marginBottom: 12,
   },
-  priceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  priceLabel: {
+  subtitle: {
     fontSize: 14,
-    color: Color.textSecondary,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 32,
   },
-  priceValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: Color.textPrimary,
-  },
-  divider: {
-    height: 0.5,
-    backgroundColor: Color.border,
-    marginVertical: 12,
-  },
-  totalLabel: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: Color.textPrimary,
-  },
-  totalValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: Color.headerBlue,
-  },
-  fieldGroup: {
-    marginBottom: Constants.spacing.medium,
-  },
-  fieldLabel: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: Color.textSecondary,
-    marginBottom: 6,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: Color.border,
-    borderRadius: Constants.borderRadius.small,
-    backgroundColor: Color.background,
-    paddingHorizontal: Constants.spacing.small,
-    height: 40,
-    color: Color.textPrimary,
-    fontSize: 14,
-  },
-  rowFields: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: Color.surface,
-    borderTopWidth: 1,
-    borderTopColor: Color.border,
-    paddingHorizontal: Constants.spacing.large,
-    paddingTop: 12,
-    elevation: 10,
-  },
-  payBtn: {
-    backgroundColor: Color.headerBlue,
-    borderRadius: 12,
+  button: {
+    backgroundColor: '#0B4FA4',
+    paddingHorizontal: 32,
     height: 48,
-    justifyContent: 'center',
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0B4FA4',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  disabledPayBtn: {
-    backgroundColor: Color.border,
-  },
-  payBtnText: {
-    color: Color.white,
-    fontSize: 16,
+  buttonText: {
+    color: '#FFF',
+    fontSize: 15,
     fontWeight: 'bold',
   },
 });

@@ -34,6 +34,8 @@ import SearchCityField2 from './shared/HotelRevamp/components/SearchCityField2';
 import homeStyle from './shared/HomeContainer/homeStyle';
 import CalenderComponent from './components/CalenderComponent';
 import { Calendar, MapPin, Minus, Plus, Search, Users, Utensils } from 'lucide-react-native';
+import { setSelectedDate as setBookingDate, setGuestCount as setBookingGuestCount } from '../../redux/booking/actions';
+import BackIconComponent from '../ComponentsV2/ComponentsV2/BackIconComponent';
 
 const SUGGESTED_RESULTS_LIMIT = 5;
 
@@ -126,11 +128,14 @@ const SearchSelection = ({
     [trending, nearby]
   );
 
+  const reduxSelectedDate = useSelector(state => state.booking.selectedDate);
+  const reduxGuestCount = useSelector(state => state.booking.guestCount);
+
   const [query, setValue] = useState('');
   const [selectedDate, setSelectedDate] = useState(
-    moment(new Date()).format('DD MMM, YYYY'),
+    reduxSelectedDate ? moment(reduxSelectedDate).format('DD MMM, YYYY') : moment(new Date()).format('DD MMM, YYYY')
   );
-  const [guestCount, setGuestCount] = useState(2);
+  const [guestCount, setGuestCount] = useState(reduxGuestCount || 2);
   const [isGuestsOpen, setGuestsOpen] = useState(false);
   const [isOpenList, setList] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -149,6 +154,18 @@ const SearchSelection = ({
   useEffect(() => {
     dispatch(getHomeListings());
   }, [dispatch]);
+
+  useEffect(() => {
+    if (reduxSelectedDate) {
+      setSelectedDate(moment(reduxSelectedDate).format('DD MMM, YYYY'));
+    }
+  }, [reduxSelectedDate]);
+
+  useEffect(() => {
+    if (reduxGuestCount) {
+      setGuestCount(reduxGuestCount);
+    }
+  }, [reduxGuestCount]);
 
   useEffect(() => {
     if (isOpenList) {
@@ -284,11 +301,17 @@ const SearchSelection = ({
     navigation.navigate(NavigationPath.SearchResults, { query: item.name });
   }, [onSearch, fadeAnimBottom, dispatch, navigation]);
 
-  const incrementGuests = () =>
-    setGuestCount(count => Math.min(10, count + 1));
+  const incrementGuests = () => {
+    const nextCount = Math.min(10, guestCount + 1);
+    setGuestCount(nextCount);
+    dispatch(setBookingGuestCount(nextCount));
+  };
 
-  const decrementGuests = () =>
-    setGuestCount(count => Math.max(1, count - 1));
+  const decrementGuests = () => {
+    const nextCount = Math.max(1, guestCount - 1);
+    setGuestCount(nextCount);
+    dispatch(setBookingGuestCount(nextCount));
+  };
 
   const handleCardPress = item => {
     dispatch(getRestaurantDetails(item.id));
@@ -412,12 +435,16 @@ const SearchSelection = ({
             },
           ])}>
           <Animated.View style={{ opacity: animContentFade }}>
-            <View style={homeStyle.rowHorizantalCenter}>
+            <View style={[homeStyle.rowHorizantalCenter, { alignItems: 'center', marginBottom: 12 }]}>
+              <TouchableOpacity onPress={() => navigation.goBack()}>
+                <BackIconComponent color={Color.white} />
+              </TouchableOpacity>
               <TextElement
                 h3
                 bold
                 h3Style={{
                   color: Color.white,
+                  lineHeight: 34,
                 }}>
                 {t('search')}
               </TextElement>
@@ -602,19 +629,21 @@ const SearchSelection = ({
         </View>
       ) : null}
 
-      <BottomSheet isBottomSafeArea={true} refRBSheet={modalizeRef}>
+      <BottomSheet isBottomSafeArea={true} refRBSheet={modalizeRef} adjustHeight={false} modalHeight={530}>
         <CalenderComponent
           isBus={false}
           oneWay={1}
           departureDate={selectedDate}
           selectedDate={depDate => {
             setSelectedDate(depDate);
+            const formattedDate = moment(depDate, 'DD MMM, YYYY').format('YYYY-MM-DD');
+            dispatch(setBookingDate(formattedDate));
             modalizeRef.current?.close();
           }}
         />
       </BottomSheet>
 
-      <BottomSheet isBottomSafeArea={false} refRBSheet={guestsBottomSheetRef}>
+      <BottomSheet isBottomSafeArea={false} refRBSheet={guestsBottomSheetRef} adjustHeight={false} modalHeight={250}>
         <View style={styles.sheetContainer}>
           <Text style={styles.sheetTitle}>Select No. of Guests</Text>
           <View style={styles.sheetRow}>

@@ -23,6 +23,7 @@ import Color from '../../common/Color';
 import Constants from '../../common/Constants';
 import Images from '../../common/Images';
 import NavigationPath from '../../navigation/NavigationPath';
+import BackIconComponent from '../ComponentsV2/ComponentsV2/BackIconComponent';
 
 import { FloorPlanCanvas } from '../../components/canvas/FloorPlanCanvas';
 import DatePickerModal from '../BookTable/DatePickerModal';
@@ -36,6 +37,8 @@ import {
   setSelectedTimeSlot,
   setSpecialRequests,
   setGuestCount,
+  getBookingPolicy,
+  getAvailability,
 } from '../../redux/booking';
 import {
   selectTable,
@@ -287,7 +290,7 @@ const RestaurantDetailsScreen = () => {
 
   // Redux Selectors
   const { selectedRestaurant, loading, error } = useSelector((state) => state.restaurant);
-  const { selectedDate, selectedTimeSlot, specialRequests, guestCount } = useSelector((state) => state.booking);
+  const { selectedDate, selectedTimeSlot, specialRequests, guestCount, policyCache, availabilityCache, policyLoading, availabilityLoading } = useSelector((state) => state.booking);
   const { selectedFloorId, selectedTableIds, joinTables, additionalNeeds, floors, tablesByFloor } = useSelector((state) => state.tables);
 
   const dateBottomSheetRef = useRef(null);
@@ -298,6 +301,51 @@ const RestaurantDetailsScreen = () => {
   const [showFloorDropdown, setShowFloorDropdown] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [availableDates, setAvailableDates] = useState([]);
+
+  const activeBranchId = restaurantId || '00000000-0000-7000-8000-000000000030';
+  const policy = policyCache && policyCache[activeBranchId];
+  const cacheKey = `${activeBranchId}_${selectedDate}_${guestCount}`;
+
+  // Map backend slots from Redux availabilityCache into UI-friendly format
+  const rawSlots = (availabilityCache && availabilityCache[cacheKey]) || [];
+  const pad = (n) => String(n).padStart(2, '0');
+  const availability = rawSlots.map((slot) => {
+    const start = new Date(slot.startsAt);
+    const end = new Date(slot.endsAt);
+    const startStr = `${pad(start.getHours())}:${pad(start.getMinutes())}`;
+    const endStr = `${pad(end.getHours())}:${pad(end.getMinutes())}`;
+    const hour = start.getHours();
+    let period = 'General';
+    if (hour < 12) period = 'Morning';
+    else if (hour < 17) period = 'Lunch';
+    else period = 'Dinner';
+
+    let [hStart, mStart] = startStr.split(':').map(Number);
+    const ampmStart = hStart >= 12 ? 'PM' : 'AM';
+    hStart = hStart % 12;
+    hStart = hStart ? hStart : 12;
+    const start12h = `${hStart}:${pad(mStart)} ${ampmStart}`;
+
+    let [hEnd, mEnd] = endStr.split(':').map(Number);
+    const ampmEnd = hEnd >= 12 ? 'PM' : 'AM';
+    hEnd = hEnd % 12;
+    hEnd = hEnd ? hEnd : 12;
+    const end12h = `${hEnd}:${pad(mEnd)} ${ampmEnd}`;
+
+    const labelRange = `${start12h} - ${end12h}`;
+
+    return {
+      label: labelRange,
+      time: `${startStr} - ${endStr}`,
+      startsAt: slot.startsAt,
+      endsAt: slot.endsAt,
+      isAvailable: true,
+      tableIds: slot.tableIds || [],
+      combinationIds: slot.combinationIds || [],
+      period,
+    };
+  });
 
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const searchHeaderTranslateY = useRef(new Animated.Value(-260)).current;
@@ -400,6 +448,63 @@ const RestaurantDetailsScreen = () => {
       dispatch(setSelectedDate(moment().format('YYYY-MM-DD')));
     }
   }, [dispatch, restaurantId, selectedRestaurant, selectedDate]);
+
+  // Load policy on mount
+  useEffect(() => {
+    const fetchPolicy = async () => {
+      try {
+        const policyResponse = await dispatch(getBookingPolicy(activeBranchId));
+        if (policyResponse && guestCount < policyResponse.minPartySize) {
+          dispatch(setGuestCount(policyResponse.minPartySize));
+        }
+      } catch (err) {
+        console.warn('Failed to load booking policy:', err.message);
+      }
+    };
+    fetchPolicy();
+  }, [dispatch, activeBranchId]);
+
+  // Generate allowed date list starting from today up to advanceMaxDays
+  useEffect(() => {
+    if (!policy) return;
+    const maxDays = policy.advanceMaxDays || 30;
+    const datesList = [];
+    const today = new Date();
+    for (let i = 0; i < maxDays; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const iso = `${yyyy}-${mm}-${dd}`;
+
+      datesList.push({
+        iso,
+        dayName: d.toLocaleDateString('en-US', { weekday: 'short' }),
+        dayNum: d.getDate(),
+        monthName: d.toLocaleDateString('en-US', { month: 'short' }),
+      });
+    }
+    setAvailableDates(datesList);
+
+    if (!selectedDate && datesList.length > 0) {
+      dispatch(setSelectedDate(datesList[0].iso));
+    }
+  }, [policy, selectedDate, dispatch]);
+
+  // Fetch slots availability when date or guestCount changes
+  useEffect(() => {
+    if (!selectedDate) return;
+    const fetchAvailability = async () => {
+      try {
+        const duration = policy?.defaultDurationMin || 90;
+        await dispatch(getAvailability(activeBranchId, selectedDate, guestCount, duration));
+      } catch (err) {
+        console.warn('Failed to fetch availability:', err.message);
+      }
+    };
+    fetchAvailability();
+  }, [selectedDate, guestCount, activeBranchId, policy]);
 
   // Preload floors and tables list to render the mini canvas layout instantly, updating on date/time change
   useEffect(() => {
@@ -556,7 +661,7 @@ const RestaurantDetailsScreen = () => {
       {/* Absolute Overlay Header with smooth animated color transition */}
       <Animated.View style={[styles.headerOverlay, { paddingTop: insets.top + 10, height: 68 + insets.top, backgroundColor: Color.headerBlue, paddingBottom: 10 }]}>
         <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.goBack()}>
-          <Lucide.ChevronLeft color={Color.white} size={28} strokeWidth={2.5} />
+          <BackIconComponent color={Color.white} />
         </TouchableOpacity>
 
         {/* Dynamic Edit/Search Bar matching Figma */}
@@ -720,16 +825,19 @@ const RestaurantDetailsScreen = () => {
 
             <Text style={styles.blockTitle}>Select Date</Text>
             <View style={styles.chipsRow}>
-              {['Fri 7', 'Sat 08', 'Sun 09'].map((dateChip) => {
-                const isSelected = selectedDate && selectedDate.includes(dateChip.split(' ')[1] || '09');
+              {availableDates.slice(0, 3).map((item) => {
+                const isSelected = selectedDate === item.iso;
                 return (
                   <TouchableOpacity
-                    key={dateChip}
+                    key={item.iso}
                     style={[styles.chip, isSelected && styles.chipSelected]}
-                    onPress={() => dispatch(setSelectedDate(`2025-03-${dateChip.split(' ')[1]}`))}
+                    onPress={() => {
+                      dispatch(setSelectedDate(item.iso));
+                      dispatch(setSelectedTimeSlot(null));
+                    }}
                   >
                     <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                      {dateChip}
+                      {item.dayName} {String(item.dayNum).padStart(2, '0')}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -738,19 +846,22 @@ const RestaurantDetailsScreen = () => {
                 style={[
                   styles.chip,
                   styles.datePickerBtn,
-                  selectedDate && !['07', '08', '09'].some(d => selectedDate.endsWith(d)) && styles.chipSelected
+                  selectedDate && !availableDates.slice(0, 3).some(d => d.iso === selectedDate) && styles.chipSelected
                 ]}
                 onPress={() => setShowDatePicker(true)}
               >
                 <View style={styles.datePickerBtnIcon}>
-                  <CalendarIcon color={Color.textSecondary} size={14} />
+                  <CalendarIcon
+                    color={selectedDate && !availableDates.slice(0, 3).some(d => d.iso === selectedDate) ? Color.white : Color.textSecondary}
+                    size={14}
+                  />
                 </View>
                 <Text style={[
                   styles.datePickerBtnText,
-                  selectedDate && !['07', '08', '09'].some(d => selectedDate.endsWith(d)) && styles.chipTextSelected
+                  selectedDate && !availableDates.slice(0, 3).some(d => d.iso === selectedDate) && styles.chipTextSelected
                 ]}>
-                  {selectedDate && !['07', '08', '09'].some(d => selectedDate.endsWith(d))
-                    ? selectedDate.split('-')[2] + '/' + selectedDate.split('-')[1]
+                  {selectedDate && !availableDates.slice(0, 3).some(d => d.iso === selectedDate)
+                    ? moment(selectedDate, 'YYYY-MM-DD').format('DD/MM')
                     : 'Select Date'}
                 </Text>
               </TouchableOpacity>
@@ -758,16 +869,25 @@ const RestaurantDetailsScreen = () => {
 
             <Text style={styles.blockTitle}>Select Time</Text>
             <View style={styles.chipsRow}>
-              {['12:00 PM', '01:00 PM', '02:00 PM', '07:00 PM'].map((timeSlot) => {
-                const isSelected = selectedTimeSlot?.label === timeSlot;
+              {availability.slice(0, 4).map((slot) => {
+                const isSelected = selectedTimeSlot?.label === slot.time;
                 return (
                   <TouchableOpacity
-                    key={timeSlot}
+                    key={slot.time}
                     style={[styles.chip, isSelected && styles.chipSelected]}
-                    onPress={() => dispatch(setSelectedTimeSlot({ label: timeSlot, period: 'Lunch' }))}
+                    onPress={() => {
+                      dispatch(setSelectedTimeSlot({
+                        label: slot.time,
+                        period: slot.period || 'General',
+                        startsAt: slot.startsAt,
+                        endsAt: slot.endsAt,
+                        tableIds: slot.tableIds || [],
+                        combinationIds: slot.combinationIds || [],
+                      }));
+                    }}
                   >
                     <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                      {timeSlot}
+                      {slot.label}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -775,16 +895,16 @@ const RestaurantDetailsScreen = () => {
               <TouchableOpacity
                 style={[
                   styles.dropdownChip,
-                  selectedTimeSlot && !['12:00 PM', '01:00 PM', '02:00 PM', '07:00 PM'].includes(selectedTimeSlot.label) && styles.chipSelected
+                  selectedTimeSlot && !availability.slice(0, 4).some(s => s.time === selectedTimeSlot.label) && styles.chipSelected
                 ]}
                 onPress={() => setShowTimePicker(true)}
               >
                 <Text style={[
                   styles.dropdownChipText,
-                  selectedTimeSlot && !['12:00 PM', '01:00 PM', '02:00 PM', '07:00 PM'].includes(selectedTimeSlot.label) && styles.chipTextSelected
+                  selectedTimeSlot && !availability.slice(0, 4).some(s => s.time === selectedTimeSlot.label) && styles.chipTextSelected
                 ]}>
-                  {selectedTimeSlot && !['12:00 PM', '01:00 PM', '02:00 PM', '07:00 PM'].includes(selectedTimeSlot.label)
-                    ? selectedTimeSlot.label
+                  {selectedTimeSlot && !availability.slice(0, 4).some(s => s.time === selectedTimeSlot.label)
+                    ? (availability.find(s => s.time === selectedTimeSlot.label)?.label || selectedTimeSlot.label)
                     : 'More ˅'}
                 </Text>
               </TouchableOpacity>
@@ -800,12 +920,14 @@ const RestaurantDetailsScreen = () => {
                 const month = String(date.getMonth() + 1).padStart(2, '0');
                 const day = String(date.getDate()).padStart(2, '0');
                 dispatch(setSelectedDate(`${year}-${month}-${day}`));
+                dispatch(setSelectedTimeSlot(null));
               }}
             />
             <TimeSlotSelectModal
               visible={showTimePicker}
               onClose={() => setShowTimePicker(false)}
               initialSlot={selectedTimeSlot}
+              availableSlots={availability}
               onConfirm={(slot) => {
                 dispatch(setSelectedTimeSlot(slot));
               }}
@@ -918,16 +1040,29 @@ const RestaurantDetailsScreen = () => {
               <>
                 <Text style={styles.selectedTableHeader}>Selected Table{selectedTableIds.length > 1 ? 's' : ''}</Text>
                 {selectedTableIds.map((tableId) => {
-                  const allTables = tablesByFloor && selectedFloorId ? (tablesByFloor[selectedFloorId] || []) : [];
-                  const matchedTable = allTables.find((t) => t.id === tableId);
+                  let matchedTable = null;
+                  if (tablesByFloor) {
+                    for (const fId of Object.keys(tablesByFloor)) {
+                      const found = tablesByFloor[fId]?.find((t) => t.id === tableId);
+                      if (found) {
+                        matchedTable = found;
+                        break;
+                      }
+                    }
+                  }
                   const rawLabel = matchedTable?.label || matchedTable?.num || tableId;
-                  const cleanLabel = rawLabel.replace('T-', '').replace('table-', '');
+                  const cleanLabel = typeof rawLabel === 'string' ? rawLabel.replace('T-', '').replace('table-', '') : String(rawLabel);
 
                   const tableInfo = {
                     num: cleanLabel,
-                    seats: matchedTable?.capacity ? `${matchedTable.capacity} Seater` : '4 Seater'
+                    seats: matchedTable && (matchedTable.capacity || matchedTable.capacityMax || matchedTable.capacity_max)
+                      ? `${matchedTable.capacity || matchedTable.capacityMax || matchedTable.capacity_max} Seater`
+                      : '4 Seater'
                   };
-                  const floorLabel = activeFloor ? (activeFloor.nameI18n?.en || activeFloor.name) : 'Floor Layout';
+
+                  const tableFloorId = matchedTable?.floorId;
+                  const tableFloor = floors && floors.find((f) => f.id === tableFloorId);
+                  const floorLabel = tableFloor ? (tableFloor.nameI18n?.en || tableFloor.name) : 'Floor Layout';
 
                   return (
                     <View key={tableId} style={styles.selectedTableCard}>
@@ -959,7 +1094,7 @@ const RestaurantDetailsScreen = () => {
             </View>
           </View>
 
-          {/* Additional baby chairs / wheelchairs */}
+          {/* Additional baby chairs / wheelchairs
           <View style={styles.additionalNeedsInnerBlock}>
             <Text style={styles.blockTitle}>Additional Needs</Text>
 
@@ -1006,6 +1141,7 @@ const RestaurantDetailsScreen = () => {
               />
             </View>
           </View>
+          */}
 
           {/* Popular Menu section */}
           <View onLayout={handleLayout('menu')} style={styles.menuInnerBlock}>
@@ -1145,16 +1281,17 @@ const RestaurantDetailsScreen = () => {
       {showBottomBar && (
         <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <TouchableOpacity
-            style={styles.reserveBtn}
-            onPress={() => navigation.navigate(NavigationPath.DateTimeSelect, { restaurantId: selectedRestaurant?.id })}
+            disabled={!selectedDate || !selectedTimeSlot}
+            style={[styles.reserveBtn, (!selectedDate || !selectedTimeSlot) && { backgroundColor: Color.border }]}
+            onPress={() => navigation.navigate(NavigationPath.LiveFloorView, { restaurantId: selectedRestaurant?.id })}
           >
-            <Text style={styles.reserveBtnText}>Select Room</Text>
+            <Text style={styles.reserveBtnText}>Select Table</Text>
           </TouchableOpacity>
         </View>
       )}
 
       {/* Light black semi-transparent backdrop overlay cover */}
-      <Animated.View 
+      <Animated.View
         pointerEvents="auto"
         style={{
           position: 'absolute',
@@ -1179,14 +1316,14 @@ const RestaurantDetailsScreen = () => {
 
       {/* Sliding Expanded Search Header Panel */}
       <Animated.View style={[
-        styles.headerOverlay, 
-        { 
+        styles.headerOverlay,
+        {
           position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
-          paddingTop: insets.top, 
-          height: 176 + insets.top, 
+          paddingTop: insets.top,
+          height: 176 + insets.top,
           backgroundColor: Color.headerBlue,
           flexDirection: 'column',
           alignItems: 'stretch',
@@ -1199,7 +1336,7 @@ const RestaurantDetailsScreen = () => {
         {/* Top Row: Back arrow, Title, Country selection */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 48 }}>
           <TouchableOpacity style={styles.headerBtn} onPress={closeSearchHeader}>
-            <Lucide.ChevronLeft color={Color.white} size={28} strokeWidth={2.5} />
+            <BackIconComponent color={Color.white} />
           </TouchableOpacity>
           <Text style={{ color: Color.white, fontSize: 18, fontWeight: '700', fontFamily: Constants.fontFamilyBold || 'System' }}>
             Search Restaurant
@@ -1211,7 +1348,7 @@ const RestaurantDetailsScreen = () => {
         </View>
 
         {/* Date Selection Box */}
-        <TouchableOpacity 
+        <TouchableOpacity
           activeOpacity={0.8}
           style={{
             flexDirection: 'row',
@@ -1236,7 +1373,7 @@ const RestaurantDetailsScreen = () => {
 
         {/* Guest Selection Row */}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
-          <TouchableOpacity 
+          <TouchableOpacity
             activeOpacity={0.8}
             style={{
               flex: 1,
@@ -1260,7 +1397,7 @@ const RestaurantDetailsScreen = () => {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             activeOpacity={0.8}
             style={{
               width: 42,
@@ -1675,16 +1812,16 @@ const styles = StyleSheet.create({
   },
   chipSelected: {
     borderColor: Color.headerBlue,
-    borderWidth: 2,
-    backgroundColor: Color.surface,
+    borderWidth: 1.5,
+    backgroundColor: Color.headerBlue,
+  },
+  chipTextSelected: {
+    color: '#FFF',
+    fontWeight: '700',
   },
   chipText: {
     fontSize: 13,
     color: Color.textSecondary,
-  },
-  chipTextSelected: {
-    color: Color.textPrimary,
-    fontWeight: '600',
   },
   datePickerBtn: {
     flexDirection: 'row',

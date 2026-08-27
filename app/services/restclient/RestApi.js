@@ -74,7 +74,22 @@ apiClient.interceptors.request.use(
 // Response interceptor to catch and log errors
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      console.log('[AUTH] Token expired or invalid (401). Clearing token and attempting relogin...');
+      authToken = null;
+      try {
+        await ensureAuth();
+        if (authToken) {
+          originalRequest.headers['Authorization'] = `Bearer ${authToken}`;
+          return apiClient(originalRequest);
+        }
+      } catch (retryError) {
+        console.warn('[AUTH] Relogin retry failed:', retryError.message);
+      }
+    }
     console.warn(`[API ERROR] ${error.config?.method?.toUpperCase()} to ${error.config?.url} failed with status ${error.response?.status}:`, error.response?.data);
     return Promise.reject(error);
   }

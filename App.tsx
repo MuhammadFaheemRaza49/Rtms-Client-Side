@@ -15,7 +15,6 @@ import SearchEmptyStateScreen from './app/container/SearchRestaurant/SearchEmpty
 import RestaurantDetailsScreen from './app/container/RestaurantDetails/RestaurantDetailsScreen';
 import DateTimeSelectScreen from './app/container/BookTable/DateTimeSelectScreen';
 import LiveFloorViewScreen from './app/container/BookTable/LiveFloorViewScreen';
-import AdditionalNeedsScreen from './app/container/BookTable/AdditionalNeedsScreen';
 import ChargesSummaryScreen from './app/container/Checkout/ChargesSummaryScreen';
 import ReviewDetailsScreen from './app/container/Checkout/ReviewDetailsScreen';
 import BookingConfirmationScreen from './app/container/BookTable/BookingConfirmationScreen';
@@ -32,68 +31,65 @@ function App() {
       <Provider store={store}>
         <LanguageProvider>
           <SafeAreaProvider>
-          <StatusBar
-            barStyle="light-content"
-            backgroundColor={Color.headerBlue}
-          />
-          <NavigationContainer>
-            <Stack.Navigator screenOptions={{ headerShown: false }}>
-              <Stack.Screen
-                name={NavigationPath.SearchRestaurant}
-                component={SearchRestaurantScreen}
-                options={{animation: 'fade_from_bottom'}}
-              />
-              <Stack.Screen
-                name={NavigationPath.SearchResults}
-                component={SearchResultsScreen}
-              />
-              
-              <Stack.Screen
-                name={NavigationPath.LocationSearch}
-                component={LocationSearchScreen}
-              />
-              <Stack.Screen
-                name={NavigationPath.SearchEmptyState}
-                component={SearchEmptyStateScreen}
-              />
-              <Stack.Screen
-                name={NavigationPath.RestaurantDetails}
-                component={RestaurantDetailsScreen}
-              />
-              <Stack.Screen
-                name={NavigationPath.DateTimeSelect}
-                component={DateTimeSelectScreen}
-              />
-              <Stack.Screen
-                name={NavigationPath.LiveFloorView}
-                component={LiveFloorViewScreen}
-              />
-              <Stack.Screen
-                name={NavigationPath.AdditionalNeeds}
-                component={AdditionalNeedsScreen}
-              />
-              <Stack.Screen
-                name={NavigationPath.ReviewDetails}
-                component={ReviewDetailsScreen}
-              />
-              <Stack.Screen
-                name={NavigationPath.ChargesSummary}
-                component={ChargesSummaryScreen}
-              />
-              <Stack.Screen
-                name={NavigationPath.BookingConfirmation}
-                component={BookingConfirmationScreen}
-              />
-              <Stack.Screen
-                name={NavigationPath.MyBookings}
-                component={MyBookingsScreen}
-              />
-              <Stack.Screen
-                name={NavigationPath.BookingDetails}
-                component={BookingDetailsScreen}
-              />
-            </Stack.Navigator>
-          </NavigationContainer>
+            <StatusBar
+              barStyle="light-content"
+              backgroundColor={Color.headerBlue}
+            />
+            <NavigationContainer>
+              <Stack.Navigator screenOptions={{ headerShown: false }}>
+                <Stack.Screen
+                  name={NavigationPath.SearchRestaurant}
+                  component={SearchRestaurantScreen}
+                  options={{ animation: 'fade_from_bottom' }}
+                />
+                <Stack.Screen
+                  name={NavigationPath.SearchResults}
+                  component={SearchResultsScreen}
+                />
+
+                <Stack.Screen
+                  name={NavigationPath.LocationSearch}
+                  component={LocationSearchScreen}
+                />
+                <Stack.Screen
+                  name={NavigationPath.SearchEmptyState}
+                  component={SearchEmptyStateScreen}
+                />
+                <Stack.Screen
+                  name={NavigationPath.RestaurantDetails}
+                  component={RestaurantDetailsScreen}
+                />
+                <Stack.Screen
+                  name={NavigationPath.DateTimeSelect}
+                  component={DateTimeSelectScreen}
+                />
+                <Stack.Screen
+                  name={NavigationPath.LiveFloorView}
+                  component={LiveFloorViewScreen}
+                />
+
+                <Stack.Screen
+                  name={NavigationPath.ReviewDetails}
+                  component={ReviewDetailsScreen}
+                />
+                <Stack.Screen
+                  name={NavigationPath.ChargesSummary}
+                  component={ChargesSummaryScreen}
+                />
+                <Stack.Screen
+                  name={NavigationPath.BookingConfirmation}
+                  component={BookingConfirmationScreen}
+                />
+                <Stack.Screen
+                  name={NavigationPath.MyBookings}
+                  component={MyBookingsScreen}
+                />
+                <Stack.Screen
+                  name={NavigationPath.BookingDetails}
+                  component={BookingDetailsScreen}
+                />
+              </Stack.Navigator>
+            </NavigationContainer>
           </SafeAreaProvider>
         </LanguageProvider>
       </Provider>

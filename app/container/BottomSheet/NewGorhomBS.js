@@ -162,9 +162,9 @@ const NewGorhomBS = ({
         const action = pendingActionRef.current;
         pendingActionRef.current = null;
 
-        requestAnimationFrame(() => {
+        setTimeout(() => {
             action();
-        });
+        }, 100);
     }, [hasMounted]);
 
     useImperativeHandle(refRBSheet, () => ({
