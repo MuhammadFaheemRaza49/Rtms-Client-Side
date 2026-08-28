@@ -52,22 +52,28 @@ const HorizontalCard = React.memo(({ item, index, onPress }) => {
   const slideAnim = useRef(new Animated.Value(15)).current;
 
   useEffect(() => {
-    Animated.parallel([
+    const anim = Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 250,
         delay: Math.min(index * 60, 400),
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.timing(slideAnim, {
         toValue: 0,
         duration: 250,
         delay: Math.min(index * 60, 400),
         easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
-    ]).start();
-  }, [index]);
+    ]);
+    anim.start();
+    return () => {
+      anim.stop();
+      fadeAnim.stopAnimation();
+      slideAnim.stopAnimation();
+    };
+  }, [index, fadeAnim, slideAnim]);
 
   return (
     <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
@@ -493,7 +499,6 @@ const SearchSelection = ({
               }}>
               <SearchCityField2
                 isFrom={true}
-                icon={<Search size={18} strokeWidth={2} color={Color.white} style={{ marginStart: 10 }} />}
                 placeholder={'Search Restaurants'}
                 onChange={text => {
                   setValue(text);

@@ -105,8 +105,8 @@ function FloorPlanCanvasInner({
         if (!scrollable) {
           return touches.length >= 2;
         }
-        // On full screen page, respond to drag or pinch
-        return touches.length >= 2 || gestureState.numberActiveTouches === 1;
+        // On full screen page, respond to pinch (2 fingers) or drag (1 finger moved by more than 5 pixels)
+        return touches.length >= 2 || (gestureState.numberActiveTouches === 1 && (Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5));
       },
       onMoveShouldSetPanResponderCapture: (evt, gestureState) => {
         const touches = evt.nativeEvent.touches;
@@ -367,7 +367,7 @@ function FloorPlanCanvasInner({
 
   const renderRenderer = (obj) => {
     const isSelected = selectedTableIds.includes(obj.id);
-    const status = isSelected ? 'available' : obj.status;
+    const status = isSelected ? 'selection' : obj.status;
     const props = {
       x: obj.x, y: obj.y,
       width: obj.width, height: obj.height,
@@ -435,7 +435,7 @@ function FloorPlanCanvasInner({
 
               {/* Interactive tables */}
               {tables.map((table) => {
-                const isAvailable = table.status === 'available';
+                const isAvailable = table.status === 'available' || selectedTableIds.includes(table.id);
                 return (
                   <G key={table.id} onPress={() => isAvailable && onTablePress && onTablePress(table.id)}>
                     {renderRenderer(table)}

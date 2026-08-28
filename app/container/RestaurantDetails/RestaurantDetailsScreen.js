@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -11,9 +11,10 @@ import {
   Animated,
   Modal,
   Dimensions,
+  Easing,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useIsFocused } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import Svg, { Path, Circle, Line, Rect } from 'react-native-svg';
 import * as Lucide from 'lucide-react-native';
@@ -31,8 +32,11 @@ import TimeSlotSelectModal from '../BookTable/TimeSlotSelectModal';
 import BottomSheet from '../BottomSheet/NewGorhomBS';
 import CalenderComponent from '../SearchRestaurant/components/CalenderComponent';
 import SelectionButton from '../SearchRestaurant/shared/HotelRevamp/components/SelectionButton';
+import SearchCityField2 from '../SearchRestaurant/shared/HotelRevamp/components/SearchCityField2';
+import homeStyle from '../SearchRestaurant/shared/HomeContainer/homeStyle';
+import TextElement from '../components/text/Text';
 
-import { getRestaurantDetails } from '../../redux/restaurant';
+import { getRestaurantDetails, searchRestaurants, getHomeListings } from '../../redux/restaurant';
 import {
   setSelectedDate,
   setSelectedTimeSlot,
@@ -284,6 +288,64 @@ const GuestsSelectorContent = ({ initialCount, onNext }) => {
   );
 };
 
+const HorizontalCard = React.memo(({ item, index, onPress }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(15)).current;
+
+  useEffect(() => {
+    const anim = Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 250,
+        delay: Math.min(index * 60, 400),
+        useNativeDriver: false,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 250,
+        delay: Math.min(index * 60, 400),
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: false,
+      }),
+    ]);
+    anim.start();
+    return () => {
+      anim.stop();
+      fadeAnim.stopAnimation();
+      slideAnim.stopAnimation();
+    };
+  }, [index, fadeAnim, slideAnim]);
+
+  return (
+    <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+      <TouchableOpacity
+        style={styles.horizontalCard}
+        activeOpacity={0.85}
+        onPress={onPress}>
+        <Image
+          source={{ uri: item.imageUrl || Images.placeholders.restaurant }}
+          style={styles.horizontalCardImage}
+          resizeMode="cover"
+        />
+        <View style={styles.horizontalCardInfo}>
+          <Text style={styles.horizontalCardName} numberOfLines={2}>
+            {item.name}
+          </Text>
+          <Text style={styles.horizontalCardLocation} numberOfLines={1}>
+            {item.location}
+          </Text>
+          <View style={styles.priceRow}>
+            <Text style={styles.horizontalCardPriceLabel}>Starting From</Text>
+            <Text style={styles.horizontalCardPrice}>
+              {item.startingPrice ? `SAR ${item.startingPrice}` : 'SAR 300'}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+});
+
 const RestaurantDetailsScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -292,6 +354,7 @@ const RestaurantDetailsScreen = () => {
   const scrollY = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef(null);
   const isManualScroll = useRef(false);
+  const hasPreselectedDate = useRef(false);
 
   const [isImageModalVisible, setImageModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('Overview');
@@ -323,6 +386,11 @@ const RestaurantDetailsScreen = () => {
   });
 
   const { restaurantId } = route.params || {};
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    hasPreselectedDate.current = false;
+  }, [restaurantId]);
 
   // Redux Selectors
   const { selectedRestaurant, loading, error } = useSelector((state) => state.restaurant);
@@ -334,10 +402,10 @@ const RestaurantDetailsScreen = () => {
 
   // Local States
   const [aboutExpanded, setAboutExpanded] = useState(false);
-  const [showFloorDropdown, setShowFloorDropdown] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [availableDates, setAvailableDates] = useState([]);
+  const [showDateTimeAlert, setShowDateTimeAlert] = useState(false);
 
   const activeBranchId = restaurantId || '00000000-0000-7000-8000-000000000030';
   const policy = policyCache && policyCache[activeBranchId];
@@ -387,8 +455,134 @@ const RestaurantDetailsScreen = () => {
     navigation.goBack();
   };
 
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchVal, setSearchVal] = useState('');
+  const [showResults, setShowResults] = useState(false);
+  const [activeHeaderHeight, setActiveHeaderHeight] = useState(140);
+
+  const searchOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const searchBarTranslateY = useRef(new Animated.Value(-200)).current;
+  const searchHeaderMoveUp = useRef(new Animated.Value(0)).current;
+  const translateAnim = useRef(new Animated.Value(0)).current;
+  const animContentFade = useRef(new Animated.Value(1)).current;
+  const animEditCityOp = useRef(new Animated.Value(0)).current;
+
+  const { searchResults, available, trending, nearby, loading: reduxLoading } = useSelector((state) => state.restaurant);
+
+
+
+  const displayList = useMemo(() => {
+    const isSearching = searchVal && searchVal.length >= 2;
+    if (isSearching) {
+      return searchResults ?? [];
+    }
+    if (available && available.length > 0) {
+      return available;
+    }
+    return [...(trending ?? []), ...(nearby ?? [])];
+  }, [searchVal, searchResults, available, trending, nearby]);
+
+  const isSearching = searchVal && searchVal.length >= 2;
+
+  useEffect(() => {
+    if (isSearchActive) {
+      dispatch(getHomeListings());
+    }
+  }, [isSearchActive, dispatch]);
+
+  useEffect(() => {
+    if (searchVal && searchVal.length >= 2) {
+      const timer = setTimeout(() => {
+        dispatch(searchRestaurants(searchVal));
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [searchVal, dispatch]);
+
   const openSearchHeader = () => {
-    navigation.goBack();
+    setIsSearchActive(true);
+    Animated.parallel([
+      Animated.timing(searchOverlayOpacity, {
+        toValue: 1,
+        duration: 800, // Slowly comes down smoothly
+        useNativeDriver: true,
+      }),
+      Animated.timing(searchBarTranslateY, {
+        toValue: 0,
+        duration: 800, // Slowly comes down smoothly
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const closeSearch = (onComplete) => {
+    Animated.parallel([
+      Animated.timing(searchOverlayOpacity, {
+        toValue: 0,
+        duration: 350,
+        useNativeDriver: true,
+      }),
+      Animated.timing(searchBarTranslateY, {
+        toValue: -250, // Higher offset to clear the tall header out completely
+        duration: 350,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateAnim, {
+        toValue: 0,
+        duration: 350,
+        useNativeDriver: true,
+      }),
+      Animated.timing(searchHeaderMoveUp, {
+        toValue: 0,
+        duration: 350,
+        useNativeDriver: true,
+      }),
+      Animated.timing(animContentFade, {
+        toValue: 1,
+        duration: 350,
+        useNativeDriver: true,
+      }),
+      Animated.timing(animEditCityOp, {
+        toValue: 0,
+        duration: 350,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setIsSearchActive(false);
+      setShowResults(false);
+      setSearchVal('');
+      if (onComplete && typeof onComplete === 'function') {
+        onComplete();
+      }
+    });
+  };
+
+  const onSecondTapSearch = () => {
+    setShowResults(true);
+    const targetTranslateY = (insets.top + 74) - activeHeaderHeight;
+    Animated.parallel([
+      Animated.timing(translateAnim, {
+        toValue: targetTranslateY,
+        duration: 400,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(animContentFade, {
+        toValue: 0,
+        duration: 350,
+        useNativeDriver: true,
+      }),
+      Animated.timing(animEditCityOp, {
+        toValue: 1,
+        duration: 350,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const onSubmitSearch = () => {
+    if (searchVal.trim() === '') return;
+    dispatch(searchRestaurants(searchVal));
   };
 
   // Layout positions for scrolling
@@ -447,17 +641,20 @@ const RestaurantDetailsScreen = () => {
 
   // Fetch details, floors, and tables on mount
   useEffect(() => {
+    if (!isFocused) return;
     const targetId = restaurantId || '00000000-0000-7000-8000-000000000030';
     if (!selectedRestaurant || selectedRestaurant.id !== targetId) {
       dispatch(getRestaurantDetails(targetId));
     }
-    if (!selectedDate) {
+    if (!selectedDate && !hasPreselectedDate.current) {
       dispatch(setSelectedDate(moment().format('YYYY-MM-DD')));
+      hasPreselectedDate.current = true;
     }
-  }, [dispatch, restaurantId, selectedRestaurant, selectedDate]);
+  }, [dispatch, restaurantId, selectedRestaurant, selectedDate, isFocused]);
 
   // Load policy on mount
   useEffect(() => {
+    if (!isFocused) return;
     const fetchPolicy = async () => {
       try {
         const policyResponse = await dispatch(getBookingPolicy(activeBranchId));
@@ -469,7 +666,7 @@ const RestaurantDetailsScreen = () => {
       }
     };
     fetchPolicy();
-  }, [dispatch, activeBranchId]);
+  }, [dispatch, activeBranchId, isFocused]);
 
   // Generate allowed date list starting from today up to advanceMaxDays
   useEffect(() => {
@@ -494,80 +691,71 @@ const RestaurantDetailsScreen = () => {
     }
     setAvailableDates(datesList);
 
-    if (!selectedDate && datesList.length > 0) {
+    if (!selectedDate && datesList.length > 0 && !hasPreselectedDate.current) {
       dispatch(setSelectedDate(datesList[0].iso));
+      hasPreselectedDate.current = true;
     }
   }, [policy, selectedDate, dispatch]);
 
   // Fetch slots availability when date or guestCount changes
   useEffect(() => {
-    if (!selectedDate) return;
+    if (!isFocused || !selectedDate) return;
     const fetchAvailability = async () => {
       try {
-        const duration = policy?.defaultDurationMin || 90;
+        const duration = policy?.duration || 120;
         await dispatch(getAvailability(activeBranchId, selectedDate, guestCount, duration));
       } catch (err) {
         console.warn('Failed to fetch availability:', err.message);
       }
     };
     fetchAvailability();
-  }, [selectedDate, guestCount, activeBranchId, policy]);
+  }, [selectedDate, guestCount, activeBranchId, policy, isFocused]);
 
   // Preload floors and tables list to render the mini canvas layout instantly, updating on date/time change
   useEffect(() => {
+    if (!isFocused) return;
     const targetId = restaurantId || '00000000-0000-7000-8000-000000000030';
     dispatch(getTables(targetId, selectedDate, selectedTimeSlot));
-  }, [dispatch, restaurantId, selectedDate, selectedTimeSlot]);
+  }, [dispatch, restaurantId, selectedDate, selectedTimeSlot, isFocused]);
 
   const targetId = restaurantId || '00000000-0000-7000-8000-000000000030';
   const isCorrectRestaurant = selectedRestaurant && selectedRestaurant.id === targetId;
 
-  if (loading || !isCorrectRestaurant) {
-    return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color={Color.headerBlue} />
-      </View>
-    );
-  }
+  const showLoader = loading || !isCorrectRestaurant;
+  const showError = !!error;
 
-  if (error) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity
-          style={styles.retryBtn}
-          onPress={() => dispatch(getRestaurantDetails(restaurantId || 'nearby-2'))}
-        >
-          <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  const activeRestaurantData = selectedRestaurant;
 
   const {
     name,
+    imageUrl,
+    cuisine,
     rating,
+    location,
+    reviews = [],
+    about,
+    images = [],
+    cancellationPolicy,
+    restaurantPolicy,
     reviewCount,
     address,
-    about,
-    highlights,
     hours,
-    depositAmount,
-    currency,
-    images,
-  } = selectedRestaurant;
+    cuisineTags,
+    amenities = [],
+    thingsToKnow = [],
+    reservationPolicy = [],
+  } = activeRestaurantData || {};
 
-  const TABLE_INFO = {
-    'table-1': { num: '1', seats: '4 Seater' },
-    'table-2': { num: '2', seats: '4 Seater' },
-    'table-3': { num: '3', seats: '6 Seater' },
-    'table-4': { num: '4', seats: '2 Seater' },
-    'table-5': { num: '5', seats: '6 Seater' },
-    'table-6': { num: '6', seats: '4 Seater' },
-  };
-  const activeFloor = floors && floors.find((f) => f.id === selectedFloorId);
+  const galleryImages = (images && images.length > 0) ? images : (imageUrl ? [imageUrl] : []);
+
+  const activeFloor = floors && floors.find((f) => f.id === selectedFloorId || f.floorId === selectedFloorId);
+  const activeFloorIdKey = activeFloor?.floorId || activeFloor?.id || selectedFloorId;
 
   const handleTableToggle = (tableId) => {
+    if (!selectedDate || !selectedTimeSlot) {
+      setShowDateTimeAlert(true);
+      return;
+    }
     if (selectedTableIds.includes(tableId)) {
       dispatch(deselectTable(tableId));
     } else {
@@ -673,8 +861,9 @@ const RestaurantDetailsScreen = () => {
 
         <View style={{ flex: 1, marginLeft: 6, marginRight: 4, marginTop: -10 }}>
           <SelectionButton
-            icon={<Lucide.Search color={Color.white} size={18} />}
+            endIcon={<Lucide.Pencil color={Color.white} size={18} />}
             placeholder="Search Restaurants"
+            title={name || 'Search Restaurants'}
             onPress={openSearchHeader}
           />
         </View>
@@ -686,39 +875,55 @@ const RestaurantDetailsScreen = () => {
 
 
 
-      {/* Floating Sticky Tab Bar overlay */}
-      <Animated.View style={{
-        position: 'absolute',
-        top: 56 + insets.top,
-        left: 0,
-        right: 0,
-        zIndex: 10,
-        opacity: stickyOpacity,
-        transform: [{ translateY: stickyTranslateY }],
-      }}>
-        {renderTabBar(true)}
-      </Animated.View>
+      {showLoader ? (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color={Color.headerBlue} />
+        </View>
+      ) : showError ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity
+            style={styles.retryBtn}
+            onPress={() => dispatch(getRestaurantDetails(restaurantId || 'nearby-2'))}
+          >
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <>
+          {/* Floating Sticky Tab Bar overlay */}
+          <Animated.View style={{
+            position: 'absolute',
+            top: 56 + insets.top,
+            left: 0,
+            right: 0,
+            zIndex: 10,
+            opacity: stickyOpacity,
+            transform: [{ translateY: stickyTranslateY }],
+          }}>
+            {renderTabBar(true)}
+          </Animated.View>
 
-      <Animated.ScrollView
-        ref={scrollViewRef}
-        scrollEnabled={true}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: dynamicBottomPadding }]}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        onScrollBeginDrag={() => {
-          isManualScroll.current = true;
-        }}
-        onScrollEndDrag={() => {
-          // Reset manual scroll flag with a minor delay if no momentum occurs
-          setTimeout(() => {
-            isManualScroll.current = false;
-          }, 150);
-        }}
-        onMomentumScrollEnd={() => {
-          isManualScroll.current = false;
-        }}
-      >
+          <Animated.ScrollView
+            ref={scrollViewRef}
+            scrollEnabled={true}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: dynamicBottomPadding }]}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            onScrollBeginDrag={() => {
+              isManualScroll.current = true;
+            }}
+            onScrollEndDrag={() => {
+              // Reset manual scroll flag with a minor delay if no momentum occurs
+              setTimeout(() => {
+                isManualScroll.current = false;
+              }, 150);
+            }}
+            onMomentumScrollEnd={() => {
+              isManualScroll.current = false;
+            }}
+          >
         {/* 1. Hero Image Header Block */}
         <TouchableOpacity
           activeOpacity={0.9}
@@ -726,14 +931,14 @@ const RestaurantDetailsScreen = () => {
           style={styles.heroContainer}
         >
           <Image
-            source={{ uri: (images && images.length > 0) ? images[0] : Images.placeholders.restaurant }}
+            source={{ uri: (galleryImages && galleryImages.length > 0) ? galleryImages[0] : Images.placeholders.restaurant }}
             style={styles.heroImage}
             resizeMode="cover"
           />
           {/* Photo Count Badge exactly matching screenshots: 1/{total} */}
           <View style={styles.photoCountBadge}>
             <LandscapeIcon color="#FFF" size={14} />
-            <Text style={styles.photoCountText}>1/{images?.length || 1}</Text>
+            <Text style={styles.photoCountText}>1/{galleryImages?.length || 1}</Text>
           </View>
         </TouchableOpacity>
 
@@ -795,7 +1000,7 @@ const RestaurantDetailsScreen = () => {
               <View style={styles.attributeRow}>
                 <ClocheIcon color={Color.textSecondary} size={16} />
                 <Text style={styles.attributeText}>
-                  {selectedRestaurant.cuisineTags ? selectedRestaurant.cuisineTags.join(', ') : 'Not Available'}
+                  {cuisineTags ? cuisineTags.join(', ') : 'Not Available'}
                 </Text>
               </View>
               <View style={styles.attributeRow}>
@@ -810,9 +1015,9 @@ const RestaurantDetailsScreen = () => {
           {/* Amenities checklist with green checkmarks */}
           <View onLayout={handleLayout('amenities')} style={styles.sectionBlock}>
             <Text style={styles.sectionHeader}>Amenities</Text>
-            {selectedRestaurant.amenities && selectedRestaurant.amenities.length > 0 ? (
+            {amenities && amenities.length > 0 ? (
               <View style={styles.amenitiesCheckList}>
-                {selectedRestaurant.amenities.map((amenity, index) => (
+                {amenities.map((amenity, index) => (
                   <View key={index} style={styles.amenityCheckItem}>
                     <View style={{ marginRight: 8, width: 20, alignItems: 'center', justifyContent: 'center' }}>
                       {getAmenityIcon(amenity, '#1E2937', 18)}
@@ -842,7 +1047,11 @@ const RestaurantDetailsScreen = () => {
                     key={item.iso}
                     style={[styles.chip, isSelected && styles.chipSelected]}
                     onPress={() => {
-                      dispatch(setSelectedDate(item.iso));
+                      if (isSelected) {
+                        dispatch(setSelectedDate(null));
+                      } else {
+                        dispatch(setSelectedDate(item.iso));
+                      }
                       dispatch(setSelectedTimeSlot(null));
                     }}
                   >
@@ -858,11 +1067,19 @@ const RestaurantDetailsScreen = () => {
                   styles.datePickerBtn,
                   selectedDate && !availableDates.slice(0, 3).some(d => d.iso === selectedDate) && styles.chipSelected
                 ]}
-                onPress={() => setShowDatePicker(true)}
+                onPress={() => {
+                  const isDatePickerSelected = selectedDate && !availableDates.slice(0, 3).some(d => d.iso === selectedDate);
+                  if (isDatePickerSelected) {
+                    dispatch(setSelectedDate(null));
+                    dispatch(setSelectedTimeSlot(null));
+                  } else {
+                    setShowDatePicker(true);
+                  }
+                }}
               >
                 <View style={styles.datePickerBtnIcon}>
                   <CalendarIcon
-                    color={selectedDate && !availableDates.slice(0, 3).some(d => d.iso === selectedDate) ? Color.white : Color.textSecondary}
+                    color={selectedDate && !availableDates.slice(0, 3).some(d => d.iso === selectedDate) ? Color.headerBlue : Color.textSecondary}
                     size={14}
                   />
                 </View>
@@ -944,81 +1161,37 @@ const RestaurantDetailsScreen = () => {
             />
           </View>
 
+          <DashedDivider />
+
           {/* Live Floor View Block */}
           <View onLayout={handleLayout('liveview')} style={styles.floorPlanInnerBlock}>
-            <View style={styles.floorPlanHeaderRow}>
-              <Text style={styles.floorPlanTitle}>Live Floor View</Text>
-              <TouchableOpacity
-                style={styles.selectFloorBtn}
-                onPress={() => setShowFloorDropdown(!showFloorDropdown)}
-              >
-                <Text style={styles.selectFloorBtnText}>
-                  {activeFloor ? (activeFloor.nameI18n?.en || activeFloor.name) : 'Select Floor'}
-                </Text>
-                <View style={styles.selectFloorChevron}>
-                  <Lucide.ChevronDown color={Color.white} size={10} strokeWidth={3} />
-                </View>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.floorPlanSubTitle}>Select your preferred table from the live layout</Text>
+            <Text style={styles.floorPlanTitle}>Live Floor View</Text>
 
-            {showFloorDropdown && floors && floors.length > 0 && (
-              <View style={styles.floorDropdown}>
-                {floors.map((f, index) => {
+            {/* Floors selection in the form of chips (matching dates layout style) */}
+            {floors && floors.length > 0 && (
+              <View style={[styles.chipsRow, { marginTop: 12, marginBottom: 4 }]}>
+                {floors.map((f) => {
                   const isActive = selectedFloorId === f.id;
                   const label = f.nameI18n?.en || f.name || 'Floor';
-                  const firstChar = label.charAt(0).toUpperCase();
                   return (
                     <TouchableOpacity
                       key={f.id}
-                      style={[
-                        styles.dropdownItem,
-                        isActive && styles.dropdownItemActive,
-                        index < floors.length - 1 && styles.dropdownItemBorder,
-                      ]}
+                      style={[styles.chip, isActive && styles.chipSelected]}
                       onPress={() => {
                         dispatch(selectFloor(f.id));
                         dispatch(getFloorTables(f.id, selectedDate, selectedTimeSlot));
-                        setShowFloorDropdown(false);
                       }}
                     >
-                      <View style={[styles.dropdownItemIcon, isActive && styles.dropdownItemIconActive]}>
-                        <Text style={[styles.dropdownItemIconText, isActive && styles.dropdownItemIconTextActive]}>{firstChar}</Text>
-                      </View>
-                      <Text style={[styles.dropdownItemText, isActive && styles.dropdownItemTextActive]}>{label}</Text>
-                      {isActive && (
-                        <View style={styles.dropdownCheckIcon}>
-                          <Text style={styles.dropdownCheckText}>✓</Text>
-                        </View>
-                      )}
+                      <Text style={[styles.chipText, isActive && styles.chipTextSelected]}>
+                        {label}
+                      </Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
             )}
 
-            {/* Interactive Floor View Controls */}
-            <View style={styles.viewModeRow}>
-              <TouchableOpacity style={styles.modeBtn}>
-                <View style={styles.loungeIcon}>
-                  <View style={styles.loungeIconFrame}>
-                    <View style={styles.loungeIconMountain} />
-                    <View style={styles.loungeIconSun} />
-                  </View>
-                </View>
-                <Text style={styles.modeBtnText}>Lounge View</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modeBtn}
-                onPress={() => navigation.navigate(NavigationPath.LiveFloorView)}
-              >
-                <View style={styles.expandIcon}>
-                  <View style={[styles.expandArrow, styles.expandArrowTL]} />
-                  <View style={[styles.expandArrow, styles.expandArrowBR]} />
-                </View>
-                <Text style={styles.modeBtnText}>View Full Screen</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.floorPlanSubTitle}>Select your preferred table from the live layout</Text>
 
             <View style={styles.legendRow}>
               <View style={styles.legendItem}>
@@ -1038,11 +1211,23 @@ const RestaurantDetailsScreen = () => {
             {/* Canvas Layout wrapper */}
             <View style={styles.miniCanvasContainer}>
               <FloorPlanCanvas
-                tables={(selectedFloorId && tablesByFloor && tablesByFloor[selectedFloorId]) || []}
+                tables={(activeFloorIdKey && tablesByFloor && tablesByFloor[activeFloorIdKey]) || []}
                 selectedTableIds={selectedTableIds}
                 onTablePress={handleTableToggle}
                 canvasMeta={activeFloor?.canvasMeta}
               />
+              <TouchableOpacity
+                style={styles.floatingFullScreenBtn}
+                onPress={() => {
+                  if (!selectedDate || !selectedTimeSlot) {
+                    setShowDateTimeAlert(true);
+                  } else {
+                    navigation.navigate(NavigationPath.LiveFloorView, { restaurantId: selectedRestaurant?.id });
+                  }
+                }}
+              >
+                <Lucide.Maximize2 color={Color.headerBlue} size={18} />
+              </TouchableOpacity>
             </View>
 
             {/* Selected table summary cards */}
@@ -1095,13 +1280,15 @@ const RestaurantDetailsScreen = () => {
             )}
 
             {/* Join tables switch */}
-            <View style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>Would you like to join the selected tables</Text>
-              <CustomSwitch
-                value={joinTables}
-                onValueChange={() => dispatch(toggleJoinTables())}
-              />
-            </View>
+            {selectedTableIds && selectedTableIds.length === 2 && (
+              <View style={styles.toggleRow}>
+                <Text style={styles.toggleLabel}>Would you like to join the selected tables</Text>
+                <CustomSwitch
+                  value={joinTables}
+                  onValueChange={() => dispatch(toggleJoinTables())}
+                />
+              </View>
+            )}
           </View>
 
           {/* Additional baby chairs / wheelchairs
@@ -1154,6 +1341,7 @@ const RestaurantDetailsScreen = () => {
           */}
 
           {/* Popular Menu section */}
+          <DashedDivider />
           <View onLayout={handleLayout('menu')} style={styles.menuInnerBlock}>
             <View style={styles.blockHeaderRow}>
               <Text style={styles.blockTitle}>Popular Menu</Text>
@@ -1207,8 +1395,8 @@ const RestaurantDetailsScreen = () => {
           <View style={styles.sectionBlock}>
             <Text style={styles.sectionHeader}>Things to Know</Text>
             <View style={styles.policyList}>
-              {selectedRestaurant.thingsToKnow && selectedRestaurant.thingsToKnow.length > 0 ? (
-                selectedRestaurant.thingsToKnow.map((item, idx) => (
+              {thingsToKnow && thingsToKnow.length > 0 ? (
+                thingsToKnow.map((item, idx) => (
                   <Text key={idx} style={styles.policyBullet}>• {item}</Text>
                 ))
               ) : (
@@ -1220,8 +1408,8 @@ const RestaurantDetailsScreen = () => {
 
             <Text style={styles.sectionHeader}>Reservation Policy</Text>
             <View style={styles.policyList}>
-              {selectedRestaurant.reservationPolicy && selectedRestaurant.reservationPolicy.length > 0 ? (
-                selectedRestaurant.reservationPolicy.map((item, idx) => (
+              {reservationPolicy && reservationPolicy.length > 0 ? (
+                reservationPolicy.map((item, idx) => (
                   <Text key={idx} style={styles.policyBullet}>• {item}</Text>
                 ))
               ) : (
@@ -1235,12 +1423,12 @@ const RestaurantDetailsScreen = () => {
           {/* Section: Reviews list */}
           <View onLayout={handleLayout('reviews')} style={styles.sectionBlock}>
             <Text style={styles.sectionHeader}>Reviews</Text>
-            {selectedRestaurant.reviews && selectedRestaurant.reviews.length > 0 ? (
+            {reviews && reviews.length > 0 ? (
               <>
-                <Text style={styles.ratingBigText}>{selectedRestaurant.rating || '4.8'}/5</Text>
-                <Text style={styles.reviewSubText}>{selectedRestaurant.reviewCount || '0'} Reviews</Text>
+                <Text style={styles.ratingBigText}>{rating || '4.8'}/5</Text>
+                <Text style={styles.reviewSubText}>{reviewCount || '0'} Reviews</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalReviewsContent}>
-                  {selectedRestaurant.reviews.map((review) => (
+                  {reviews.map((review) => (
                     <View key={review.id} style={styles.reviewCard}>
                       <View style={styles.reviewHeaderRow}>
                         <View style={styles.reviewAvatar}>
@@ -1265,6 +1453,23 @@ const RestaurantDetailsScreen = () => {
         </View>
       </Animated.ScrollView>
 
+
+
+      {/* Sticky Bottom Bar exactly matching screenshot */}
+      {showBottomBar && (
+        <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <TouchableOpacity
+            disabled={!selectedDate || !selectedTimeSlot}
+            style={[styles.reserveBtn, (!selectedDate || !selectedTimeSlot) && { backgroundColor: Color.border }]}
+            onPress={() => navigation.navigate(NavigationPath.LiveFloorView, { restaurantId: selectedRestaurant?.id })}
+          >
+            <Text style={styles.reserveBtnText}>Select Table</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+        </>
+      )}
+
       {/* Full-Screen Image Viewer Modal */}
       <Modal
         visible={isImageModalVisible}
@@ -1280,25 +1485,38 @@ const RestaurantDetailsScreen = () => {
             <Text style={styles.closeFullText}>✕</Text>
           </TouchableOpacity>
           <Image
-            source={{ uri: (images && images.length > 0) ? images[0] : Images.placeholders.restaurant }}
+            source={{ uri: (galleryImages && galleryImages.length > 0) ? galleryImages[0] : Images.placeholders.restaurant }}
             style={styles.fullScreenImage}
             resizeMode="contain"
           />
         </View>
       </Modal>
 
-      {/* Sticky Bottom Bar exactly matching screenshot */}
-      {showBottomBar && (
-        <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <TouchableOpacity
-            disabled={!selectedDate || !selectedTimeSlot}
-            style={[styles.reserveBtn, (!selectedDate || !selectedTimeSlot) && { backgroundColor: Color.border }]}
-            onPress={() => navigation.navigate(NavigationPath.LiveFloorView, { restaurantId: selectedRestaurant?.id })}
-          >
-            <Text style={styles.reserveBtnText}>Select Table</Text>
-          </TouchableOpacity>
+      {/* Date & Time Required Alert Modal */}
+      <Modal
+        visible={showDateTimeAlert}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDateTimeAlert(false)}
+      >
+        <View style={styles.alertOverlay}>
+          <View style={styles.alertBox}>
+            <View style={styles.alertIconWrapper}>
+              <Lucide.CalendarClock size={36} color={Color.reserved} />
+            </View>
+            <Text style={styles.alertTitle}>Date & Time Required</Text>
+            <Text style={styles.alertMessage}>
+              Please select your booking date and time slot first to view available tables and reserve.
+            </Text>
+            <TouchableOpacity
+              style={styles.alertBtn}
+              onPress={() => setShowDateTimeAlert(false)}
+            >
+              <Text style={styles.alertBtnText}>Got It</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      )}
+      </Modal>
 
       {/* Date Selection Calendar Bottom Sheet Modal */}
       <BottomSheet isBottomSafeArea={true} refRBSheet={dateBottomSheetRef}>
@@ -1324,6 +1542,183 @@ const RestaurantDetailsScreen = () => {
           }}
         />
       </BottomSheet>
+
+      {/* Dark layer backdrop that covers the whole screen */}
+      <Animated.View
+        pointerEvents={isSearchActive ? 'auto' : 'none'}
+        style={[
+          styles.searchOverlayBackdrop,
+          {
+            opacity: searchOverlayOpacity,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          style={StyleSheet.absoluteFill}
+          onPress={closeSearch}
+        />
+      </Animated.View>
+
+      {/* Slide-down search input, shifts up when search results render */}
+      <Animated.View
+        pointerEvents={isSearchActive ? 'auto' : 'none'}
+        style={[
+          styles.activeSearchWrapper,
+          {
+            transform: [
+              { translateY: searchBarTranslateY },
+              { translateY: searchHeaderMoveUp },
+            ],
+          },
+        ]}
+      >
+          {/* Active Search Header (Tall container) */}
+          <Animated.View
+            onLayout={(event) => {
+              setActiveHeaderHeight(event.nativeEvent.layout.height);
+            }}
+            style={[
+              styles.activeSearchHeaderRow,
+              {
+                paddingTop: insets.top + 10,
+                paddingBottom: 24,
+                paddingHorizontal: 0,
+                flexDirection: 'column',
+                alignItems: 'stretch',
+                backgroundColor: Color.headerBlue,
+                elevation: 4,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.15,
+                shadowRadius: 3,
+                transform: [{ translateY: translateAnim }],
+              }
+            ]}
+          >
+            {/* Pre-Animation Content */}
+            <Animated.View style={{ opacity: animContentFade, pointerEvents: showResults ? 'none' : 'auto' }}>
+              {/* Title row */}
+              <View style={[homeStyle.rowHorizantalCenter, { alignItems: 'center', marginBottom: 12, paddingHorizontal: 14 }]}>
+                <TouchableOpacity onPress={closeSearch}>
+                  <BackIconComponent color={Color.white} />
+                </TouchableOpacity>
+                <TextElement
+                  h3
+                  bold
+                  h3Style={{
+                    color: Color.white,
+                    lineHeight: 34,
+                    marginLeft: 10,
+                  }}>
+                  Search
+                </TextElement>
+              </View>
+
+              {/* Selection Button */}
+              <View style={{ paddingHorizontal: 20 }}>
+                <SelectionButton
+                  icon={<Lucide.Search color={Color.white} size={20} />}
+                  placeholder="Search Restaurants"
+                  onPress={onSecondTapSearch}
+                  title={searchVal || undefined}
+                  textStyle={{ color: Color.white }}
+                />
+              </View>
+            </Animated.View>
+
+            {/* Post-Animation Content (SearchCityField2) */}
+            <Animated.View
+              pointerEvents={showResults ? 'auto' : 'none'}
+              style={{
+                opacity: animEditCityOp,
+                position: 'absolute',
+                left: 10,
+                right: 20,
+                bottom: 18,
+              }}
+            >
+                <SearchCityField2
+                  isFrom={true}
+                  placeholder="Search Restaurants"
+                  onChange={(text) => {
+                    setSearchVal(text);
+                  }}
+                  value={searchVal}
+                  placeholderTextColor={Color.white}
+                  onClear={() => {
+                    setSearchVal('');
+                  }}
+                  onBack={() => {
+                    // Always animate back to pre-search state immediately on back button click
+                    Animated.parallel([
+                      Animated.timing(translateAnim, {
+                        toValue: 0,
+                        duration: 350,
+                        easing: Easing.out(Easing.ease),
+                        useNativeDriver: true,
+                      }),
+                      Animated.timing(animContentFade, {
+                        toValue: 1,
+                        duration: 350,
+                        useNativeDriver: true,
+                      }),
+                      Animated.timing(animEditCityOp, {
+                        toValue: 0,
+                        duration: 350,
+                        useNativeDriver: true,
+                      }),
+                    ]).start(() => {
+                      setShowResults(false);
+                      setSearchVal('');
+                    });
+                  }}
+                  onSubmitEditing={onSubmitSearch}
+                />
+              </Animated.View>
+          </Animated.View>
+
+          {/* Results Area / Dismiss handler */}
+          <TouchableOpacity
+            activeOpacity={1}
+            pointerEvents={showResults ? 'none' : 'auto'}
+            style={{ flex: 1 }}
+            onPress={closeSearch}
+          />
+          <Animated.View
+            pointerEvents={showResults ? 'auto' : 'none'}
+            style={[styles.searchResultsWrapper, { top: activeHeaderHeight, opacity: animEditCityOp, transform: [{ translateY: translateAnim }] }]}
+          >
+              {isSearching && reduxLoading ? (
+                <View style={styles.searchLoadingWrapper}>
+                  <ActivityIndicator size="large" color={Color.headerBlue} />
+                </View>
+              ) : displayList && displayList.length > 0 ? (
+                <ScrollView
+                  keyboardShouldPersistTaps="handled"
+                  style={styles.searchResultsList}
+                  contentContainerStyle={styles.searchResultsListContent}
+                >
+                  {displayList.map((item, index) => (
+                    <HorizontalCard
+                      key={`${item.id}-${index}`}
+                      item={item}
+                      index={index}
+                      onPress={() => {
+                        closeSearch(() => {
+                          navigation.setParams({ restaurantId: item.id });
+                        });
+                      }}
+                    />
+                  ))}
+                </ScrollView>
+              ) : (
+                <View style={styles.searchNoResultsWrapper}>
+                  <Text style={styles.searchNoResultsText}>No restaurants found</Text>
+                </View>
+              )}
+            </Animated.View>
+        </Animated.View>
     </View>
   );
 };
@@ -1679,10 +2074,9 @@ const styles = StyleSheet.create({
   chipSelected: {
     borderColor: Color.headerBlue,
     borderWidth: 1.5,
-    backgroundColor: Color.headerBlue,
   },
   chipTextSelected: {
-    color: '#FFF',
+    color: Color.headerBlue,
     fontWeight: '700',
   },
   chipText: {
@@ -2295,6 +2689,262 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: Constants.fontFamilyMedium,
     fontWeight: '600',
+  },
+  searchOverlayBackdrop: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    zIndex: 99,
+  },
+  activeSearchWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: -50,
+    zIndex: 100,
+  },
+  activeSearchHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Color.headerBlue,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  activeSearchBackBtn: {
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activeSearchInputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    paddingHorizontal: 12,
+    height: 40,
+  },
+  activeSearchInput: {
+    flex: 1,
+    color: '#FFF',
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  activeSearchClearBtn: {
+    padding: 4,
+  },
+  activeSearchClearText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 12,
+  },
+  activeSearchBtn: {
+    marginLeft: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchResultsWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: -150,
+    backgroundColor: Color.background,
+  },
+  searchLoadingWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 200,
+  },
+  searchResultsList: {
+    flex: 1,
+  },
+  searchResultsListContent: {
+    padding: 16,
+  },
+  searchResultCard: {
+    flexDirection: 'row',
+    backgroundColor: Color.surface,
+    borderRadius: 12,
+    marginBottom: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Color.border,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  searchResultCardImage: {
+    width: 90,
+    height: 90,
+  },
+  searchResultCardInfo: {
+    flex: 1,
+    padding: 12,
+    justifyContent: 'center',
+  },
+  searchResultCardName: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: Color.textPrimary,
+    marginBottom: 4,
+  },
+  searchResultCardLoc: {
+    fontSize: 13,
+    color: Color.textSecondary,
+    marginBottom: 6,
+  },
+  searchResultCardRatingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  searchResultCardStars: {
+    fontSize: 13,
+    color: Color.starColor,
+    fontWeight: '600',
+  },
+  searchResultCardPrice: {
+    fontSize: 13,
+    color: Color.textPrimary,
+    fontWeight: '600',
+  },
+  searchNoResultsWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 200,
+  },
+  searchNoResultsText: {
+    color: Color.textSecondary,
+    fontSize: 14,
+  },
+  horizontalCard: {
+    flexDirection: 'row',
+    backgroundColor: Color.surface,
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Color.border,
+    alignItems: 'center',
+  },
+  horizontalCardImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+  },
+  horizontalCardInfo: {
+    flex: 1,
+    marginLeft: 14,
+  },
+  horizontalCardName: {
+    fontSize: 15,
+    fontFamily: Constants.fontFamilyMedium,
+    color: Color.textPrimary,
+    fontWeight: '600',
+    lineHeight: 20,
+    marginBottom: 3,
+  },
+  horizontalCardLocation: {
+    fontSize: 12,
+    fontFamily: Constants.fontFamilyRegular,
+    color: Color.textSecondary,
+    marginBottom: 6,
+  },
+  priceRow: {
+    marginTop: 2,
+  },
+  horizontalCardPriceLabel: {
+    fontSize: 11,
+    fontFamily: Constants.fontFamilyRegular,
+    color: Color.textMuted,
+  },
+  horizontalCardPrice: {
+    fontSize: 14,
+    fontFamily: Constants.fontFamilyMedium,
+    color: Color.textPrimary,
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  floatingFullScreenBtn: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    backgroundColor: '#FFFFFF',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+    zIndex: 10,
+  },
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  alertBox: {
+    backgroundColor: Color.surface,
+    borderRadius: 16,
+    padding: 24,
+    width: '82%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  alertIconWrapper: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(243, 156, 18, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  alertTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Color.textPrimary,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  alertMessage: {
+    fontSize: 14,
+    color: Color.textSecondary,
+    textAlign: 'center',
+    marginTop: 10,
+    lineHeight: 20,
+  },
+  alertBtn: {
+    backgroundColor: Color.headerBlue,
+    borderRadius: 10,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+    width: '100%',
+  },
+  alertBtnText: {
+    color: Color.white,
+    fontSize: 15,
+    fontWeight: 'bold',
   },
 });
 

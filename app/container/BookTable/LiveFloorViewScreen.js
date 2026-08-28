@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   View,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -14,6 +15,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import Color from '../../common/Color';
 import Constants from '../../common/Constants';
 import NavigationPath from '../../navigation/NavigationPath';
+
 import * as Lucide from 'lucide-react-native';
 import BackIconComponent from '../ComponentsV2/ComponentsV2/BackIconComponent';
 
@@ -23,6 +25,7 @@ import {
   deselectTable,
   selectFloor,
   getTables,
+  getFloorTables,
 } from '../../redux/tables';
 
 export default function LiveFloorViewScreen() {
@@ -31,20 +34,27 @@ export default function LiveFloorViewScreen() {
   const route = useRoute();
   const dispatch = useDispatch();
 
+  const [showDateTimeAlert, setShowDateTimeAlert] = React.useState(false);
+
   const { restaurantId } = route.params || {};
   const activeBranchId = restaurantId || '00000000-0000-7000-8000-000000000030';
 
   const { selectedDate, selectedTimeSlot } = useSelector((state) => state.booking);
-  const { selectedFloorId, selectedTableIds, floors, tablesByFloor, loading, error } = useSelector((state) => state.tables);
+  const { selectedFloorId, selectedTableIds, floors, tablesByFloor, loading, error, branchId: tablesBranchId } = useSelector((state) => state.tables);
 
   useEffect(() => {
     const hasFloorsLoaded = Array.isArray(floors) && floors.length > 0;
-    if (!hasFloorsLoaded) {
+    const isSameBranch = tablesBranchId === activeBranchId;
+    if (!hasFloorsLoaded || !isSameBranch) {
       dispatch(getTables(activeBranchId, selectedDate, selectedTimeSlot));
     }
-  }, [dispatch, activeBranchId, floors]);
+  }, [dispatch, activeBranchId, floors, selectedDate, selectedTimeSlot, tablesBranchId]);
 
   const handleTablePress = (tableId) => {
+    if (!selectedDate || !selectedTimeSlot) {
+      setShowDateTimeAlert(true);
+      return;
+    }
     if (selectedTableIds.includes(tableId)) {
       dispatch(deselectTable(tableId));
     } else {
@@ -53,6 +63,10 @@ export default function LiveFloorViewScreen() {
   };
 
   const handleProceed = () => {
+    if (!selectedDate || !selectedTimeSlot) {
+      setShowDateTimeAlert(true);
+      return;
+    }
     if (selectedTableIds.length === 0) return;
     navigation.navigate(NavigationPath.AdditionalNeeds, { restaurantId: activeBranchId });
   };
@@ -61,8 +75,9 @@ export default function LiveFloorViewScreen() {
     navigation.goBack();
   };
 
-  const activeFloor = floors && floors.find((f) => f.id === selectedFloorId);
-  const floorTables = (selectedFloorId && tablesByFloor && tablesByFloor[selectedFloorId]) || [];
+  const activeFloor = floors && floors.find((f) => f.id === selectedFloorId || f.floorId === selectedFloorId);
+  const activeFloorIdKey = activeFloor?.floorId || activeFloor?.id || selectedFloorId;
+  const floorTables = (activeFloorIdKey && tablesByFloor && tablesByFloor[activeFloorIdKey]) || [];
 
   return (
     <View style={styles.container}>
@@ -87,7 +102,11 @@ export default function LiveFloorViewScreen() {
                 <TouchableOpacity
                   key={f.id || f.floorId}
                   style={[styles.floorTab, isActive && styles.floorTabActive]}
-                  onPress={() => dispatch(selectFloor(f.floorId || f.id))}
+                  onPress={() => {
+                    const targetFloorId = f.floorId || f.id;
+                    dispatch(selectFloor(targetFloorId));
+                    dispatch(getFloorTables(targetFloorId, selectedDate, selectedTimeSlot));
+                  }}
                 >
                   <Text style={[styles.floorTabText, isActive && styles.floorTabTextActive]}>
                     {label}
@@ -156,6 +175,32 @@ export default function LiveFloorViewScreen() {
           <Text style={styles.proceedBtnText}>Next: Passenger Details</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Date & Time Required Alert Modal */}
+      <Modal
+        visible={showDateTimeAlert}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDateTimeAlert(false)}
+      >
+        <View style={styles.alertOverlay}>
+          <View style={styles.alertBox}>
+            <View style={styles.alertIconWrapper}>
+              <Lucide.CalendarClock size={36} color={Color.reserved} />
+            </View>
+            <Text style={styles.alertTitle}>Date & Time Required</Text>
+            <Text style={styles.alertMessage}>
+              Please select your booking date and time slot first to view available tables and reserve.
+            </Text>
+            <TouchableOpacity
+              style={styles.alertBtn}
+              onPress={() => setShowDateTimeAlert(false)}
+            >
+              <Text style={styles.alertBtnText}>Got It</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -290,14 +335,68 @@ const styles = StyleSheet.create({
   },
   floorTabActive: {
     borderColor: Color.headerBlue,
-    backgroundColor: Color.headerBlue,
+    borderWidth: 1.5,
   },
   floorTabText: {
     fontSize: 14,
     color: Color.textSecondary,
   },
   floorTabTextActive: {
+    color: Color.headerBlue,
+    fontWeight: 'bold',
+  },
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  alertBox: {
+    backgroundColor: Color.surface,
+    borderRadius: 16,
+    padding: 24,
+    width: '82%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  alertIconWrapper: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(243, 156, 18, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  alertTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Color.textPrimary,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  alertMessage: {
+    fontSize: 14,
+    color: Color.textSecondary,
+    textAlign: 'center',
+    marginTop: 10,
+    lineHeight: 20,
+  },
+  alertBtn: {
+    backgroundColor: Color.headerBlue,
+    borderRadius: 10,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+    width: '100%',
+  },
+  alertBtnText: {
     color: Color.white,
+    fontSize: 15,
     fontWeight: 'bold',
   },
 });

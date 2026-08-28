@@ -20,5 +20,9 @@ export const CANVAS_COLORS = {
     label: '#475569',
   },
   wall: '#111827',
-  selection: '#1552B3',
+  selection: {
+    fill: 'rgba(12, 77, 168, 0.12)',
+    stroke: '#0C4DA8',
+    label: '#0C4DA8',
+  },
 };

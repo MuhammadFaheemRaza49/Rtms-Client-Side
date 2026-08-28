@@ -205,14 +205,13 @@ const styles = StyleSheet.create({
   },
   selectedChip: {
     borderColor: '#1552B3',
-    backgroundColor: '#1552B3',
   },
   chipText: {
     fontSize: 13,
     color: '#6B7280',
   },
   selectedChipText: {
-    color: '#FFFFFF',
+    color: '#1552B3',
     fontWeight: '600',
   },
   confirmBtn: {
